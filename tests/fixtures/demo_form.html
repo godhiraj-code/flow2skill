@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Flow2Skill proof fixture</title></head>
+<body>
+  <main>
+    <h1>Documentation search</h1>
+    <label for="search">Search docs</label>
+    <input id="search" placeholder="Search docs">
+    <button type="button" id="search-button">Search</button>
+    <p id="result" hidden></p>
+  </main>
+  <script>
+    document.getElementById('search-button').addEventListener('click', () => {
+      const value = document.getElementById('search').value;
+      const result = document.getElementById('result');
+      result.textContent = `Results: ${value}`;
+      result.hidden = false;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flow2Skill Agent Release Gate</title>
+<style>
+:root{color-scheme:dark;--bg:#090b0a;--panel:#121513;--line:#2c332e;--acid:#d8ff52;--ink:#f4f1e8;--muted:#99a29c;--cyan:#62e6ff}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 80% 10%,#18200f 0,transparent 34%),linear-gradient(135deg,#080a09,#0d100e);color:var(--ink);font:16px/1.5 Inter,Segoe UI,sans-serif}.shell{width:min(1000px,92vw);border:1px solid var(--line);border-radius:24px;background:rgba(18,21,19,.96);box-shadow:0 30px 100px #0008;overflow:hidden}.bar{display:flex;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--line);font:700 12px ui-monospace,monospace;letter-spacing:.12em}.badge{color:var(--acid)}main{padding:54px}.eyebrow{color:var(--acid);font:700 12px ui-monospace,monospace;letter-spacing:.13em}h1{font-size:clamp(42px,7vw,76px);line-height:.95;margin:18px 0;letter-spacing:-.055em}p{color:var(--muted);max-width:690px}.gate{display:grid;grid-template-columns:1fr auto;gap:12px;margin-top:38px}label{grid-column:1/-1;color:#cdd3cf;font:700 12px ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase}input{min-width:0;border:1px solid #3c443f;border-radius:12px;background:#090b0a;color:var(--ink);padding:17px;font-size:17px;outline:none}input:focus{border-color:var(--acid);box-shadow:0 0 0 3px #d8ff5222}button{border:0;border-radius:12px;background:var(--acid);color:#0a0c0b;padding:0 27px;font-weight:850;font-size:16px;cursor:pointer}#result{margin:30px 0 0;padding:22px;border:1px solid #53672f;border-radius:14px;background:#d8ff520d;color:var(--ink);font:700 21px ui-monospace,monospace}.proof{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:34px}.proof div{padding:18px;border:1px solid var(--line);border-radius:12px;color:var(--muted);font-size:13px}.proof strong{display:block;color:var(--cyan);font:700 15px ui-monospace,monospace;margin-bottom:4px}@media(max-width:640px){main{padding:32px}.gate{grid-template-columns:1fr}.proof{grid-template-columns:1fr}button{height:54px}}
+</style>
+</head>
+<body>
+<section class="shell">
+  <header class="bar"><span>AGENT RELEASE GATE</span><span class="badge">LOCAL FIXTURE · NO EXTERNAL CALLS</span></header>
+  <main>
+    <div class="eyebrow">DETERMINISTIC APPROVAL PROOF</div>
+    <h1>Prove the workflow,<br>not the promise.</h1>
+    <p>This packaged fixture validates Flow2Skill without an account, network request, persistent write, or production credential.</p>
+    <div class="gate">
+      <label for="api-token">API token</label>
+      <input id="api-token" type="password" placeholder="Synthetic demo token" autocomplete="off">
+      <button type="button" id="validate-button">Validate workflow</button>
+    </div>
+    <h2 id="result" role="status" hidden>Ready for deterministic replay</h2>
+    <div class="proof">
+      <div><strong>EXTERNAL CALLS: 0</strong>Everything runs on loopback.</div>
+      <div><strong>PERSISTENT WRITES: 0</strong>The fixture stores nothing.</div>
+      <div><strong>FIXTURE MODE: DETERMINISTIC</strong>One exact mechanical gate.</div>
+    </div>
+  </main>
+</section>
+<script>
+document.getElementById('validate-button').addEventListener('click',()=>{const token=document.getElementById('api-token').value;const result=document.getElementById('result');if(token){result.hidden=false}});
+</script>
+</body>
+</html>

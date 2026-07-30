@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+build/
+dist/
+*.egg-info/
+*.raw.py
+recordings/
+workspaces/
+playwright-report/
+test-results/
+.tmp/
+.env
+# Reproducible intermediate demo media; final GIF/narrated MP4 are tracked.
+docs/*.webm
+docs/flow2skill-demo.mp4
+docs/*.wav

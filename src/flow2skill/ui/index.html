@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flow2Skill Studio</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink:#f4f1e8; --muted:#9da4ab; --dim:#6c737b;
+      --paper:#0c0d0d; --panel:#131515; --panel2:#191c1c;
+      --line:#2c3030; --acid:#d8ff52; --ember:#ff6b35; --cyan:#62e6ff;
+      --danger:#ff6f7f; --shadow:0 28px 80px rgba(0,0,0,.42);
+    }
+    *{box-sizing:border-box} html{background:var(--paper)}
+    body{margin:0;min-height:100vh;background:
+      radial-gradient(circle at 82% -10%,rgba(216,255,82,.11),transparent 29%),
+      radial-gradient(circle at 7% 62%,rgba(98,230,255,.07),transparent 30%),
+      linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px),var(--paper);
+      background-size:auto,auto,38px 38px,38px 38px;
+      color:var(--ink);font-family:"Segoe UI",Arial,sans-serif;letter-spacing:.01em}
+    button,input,textarea{font:inherit} button{cursor:pointer}
+    .shell{display:grid;grid-template-columns:260px minmax(0,1fr);min-height:100vh}
+    aside{border-right:1px solid var(--line);padding:28px 22px;position:sticky;top:0;height:100vh;background:rgba(10,11,11,.86);backdrop-filter:blur(14px);display:flex;flex-direction:column;z-index:2}
+    .brand{display:flex;align-items:center;gap:12px;margin-bottom:42px}.mark{width:34px;height:34px;border:1px solid var(--acid);display:grid;place-items:center;color:var(--acid);font-family:Consolas,monospace;font-weight:800;box-shadow:inset 0 0 20px rgba(216,255,82,.08)}
+    .brand b{font-size:17px;letter-spacing:.08em}.brand small{display:block;color:var(--dim);font-size:10px;letter-spacing:.18em;margin-top:3px}
+    .nav-label{color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:.22em;margin:0 8px 10px}
+    .nav{display:grid;gap:7px}.nav button{color:var(--muted);background:transparent;border:1px solid transparent;text-align:left;padding:12px 13px;border-radius:8px;display:flex;gap:10px;align-items:center}.nav button:hover{background:var(--panel)}.nav button.active{background:var(--acid);color:#10120b;font-weight:800}
+    .nav .n{font:11px Consolas,monospace;opacity:.68}
+    .local{margin-top:auto;border:1px solid var(--line);padding:14px;border-radius:10px;color:var(--muted);font-size:12px;line-height:1.5;background:rgba(255,255,255,.02)}.local strong{color:var(--acid);display:block;margin-bottom:4px}.pulse{display:inline-block;width:7px;height:7px;background:var(--acid);border-radius:50%;box-shadow:0 0 12px var(--acid);margin-right:6px}
+    main{padding:34px 44px 60px;max-width:1480px;width:100%;margin:auto}
+    .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:34px}.kicker{font:700 11px Consolas,monospace;letter-spacing:.16em;color:var(--acid);text-transform:uppercase}.status-mini{font:11px Consolas,monospace;color:var(--dim);border:1px solid var(--line);padding:8px 10px;border-radius:999px}
+    h1{font-size:clamp(42px,6vw,84px);line-height:.92;letter-spacing:-.065em;margin:12px 0 18px;max-width:920px;font-weight:780} h1 em{font-style:normal;color:var(--acid)}
+    .lede{max-width:700px;font-size:17px;line-height:1.65;color:var(--muted);margin:0}
+    .hero{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(300px,.7fr);gap:30px;align-items:end;margin-bottom:34px}
+    .proof-strip{border:1px solid var(--line);background:var(--panel);padding:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;border-radius:12px;box-shadow:var(--shadow)}.proof{padding:6px 17px;border-right:1px solid var(--line)}.proof:last-child{border:0}.proof b{font:700 21px Consolas,monospace;color:var(--acid);display:block}.proof span{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em}
+    .workspace{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(330px,.85fr);gap:20px;align-items:start}.card{border:1px solid var(--line);background:rgba(19,21,21,.93);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}.card-head{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line)}.card-head h2{font-size:13px;margin:0;letter-spacing:.11em;text-transform:uppercase}.step-chip{font:10px Consolas,monospace;color:#111;background:var(--acid);padding:5px 8px;border-radius:999px}
+    .tabs{display:flex;border-bottom:1px solid var(--line)}.tab{flex:1;border:0;border-right:1px solid var(--line);padding:14px;background:#101212;color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.12em}.tab:last-child{border-right:0}.tab.active{color:var(--ink);background:var(--panel2);box-shadow:inset 0 -2px var(--acid)}
+    .pane{display:none;padding:20px}.pane.active{display:block}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field{display:grid;gap:7px;margin-bottom:14px}.field label{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}.field input,.field textarea{width:100%;border:1px solid var(--line);background:#0c0e0e;color:var(--ink);padding:12px 13px;border-radius:7px;outline:none}.field input:focus,.field textarea:focus{border-color:var(--acid);box-shadow:0 0 0 3px rgba(216,255,82,.08)}.field textarea{min-height:250px;resize:vertical;font:12px/1.62 Consolas,monospace}.hint{font-size:11px;color:var(--dim);line-height:1.45}
+    .check{display:flex;align-items:flex-start;gap:9px;color:var(--muted);font-size:12px;margin:8px 0 18px}.check input{accent-color:var(--acid);margin-top:2px}
+    .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.primary,.secondary,.ghost{border-radius:7px;padding:12px 16px;font-weight:800;border:1px solid var(--line)}.primary{background:var(--acid);color:#0c0d08;border-color:var(--acid)}.primary:hover{filter:brightness(.9)}.primary:disabled{opacity:.45;cursor:wait}.secondary{background:var(--panel2);color:var(--ink)}.ghost{background:transparent;color:var(--muted)}
+    .right-stack{display:grid;gap:20px}.artifact-body{padding:18px 20px}.empty{min-height:230px;display:grid;place-items:center;text-align:center;color:var(--dim);padding:30px}.empty .glyph{font:46px Consolas,monospace;color:#343939;margin-bottom:10px}.empty p{max-width:260px;font-size:12px;line-height:1.55}
+    .result{display:none}.result.show{display:block}.score-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}.metric{border:1px solid var(--line);background:#0e1010;padding:12px;border-radius:8px}.metric b{display:block;font:21px Consolas,monospace;color:var(--acid)}.metric span{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em}
+    .artifact-list{display:grid;gap:7px}.artifact{display:flex;justify-content:space-between;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:7px;background:#101212}.artifact code{font:12px Consolas,monospace;color:var(--cyan)}.artifact button{border:0;background:transparent;color:var(--muted);font-size:11px}.artifact button:hover{color:var(--acid)}
+    .warnings{margin-top:13px;padding:11px;border-left:2px solid var(--ember);background:rgba(255,107,53,.06);color:#d7b29f;font-size:11px;line-height:1.5}.path{margin-top:14px;font:10px/1.5 Consolas,monospace;color:var(--dim);word-break:break-all}
+    .recent{padding:8px 18px 18px;display:grid;gap:8px;max-height:220px;overflow:auto}.recent-item{border:1px solid var(--line);border-radius:7px;padding:10px 11px;display:flex;justify-content:space-between;gap:10px}.recent-item b{font-size:12px}.recent-item small{display:block;color:var(--dim);margin-top:4px}.recent-item button{border:0;background:transparent;color:var(--acid);font:11px Consolas,monospace}
+    .toast{position:fixed;right:24px;bottom:24px;max-width:420px;background:#171a1a;border:1px solid var(--line);border-left:3px solid var(--acid);padding:14px 16px;border-radius:8px;box-shadow:var(--shadow);font-size:12px;line-height:1.5;transform:translateY(120px);opacity:0;transition:.24s;z-index:10}.toast.show{transform:translateY(0);opacity:1}.toast.error{border-left-color:var(--danger)}
+    dialog{width:min(900px,92vw);height:min(720px,88vh);border:1px solid var(--line);border-radius:12px;background:#0d0f0f;color:var(--ink);padding:0;box-shadow:var(--shadow)}dialog::backdrop{background:rgba(0,0,0,.72);backdrop-filter:blur(3px)}.modal-head{display:flex;justify-content:space-between;align-items:center;padding:15px 18px;border-bottom:1px solid var(--line)}.modal-head b{font:12px Consolas,monospace;color:var(--acid)}.modal-head button{border:0;background:transparent;color:var(--muted);font-size:20px}.preview{margin:0;padding:20px;height:calc(100% - 56px);overflow:auto;white-space:pre-wrap;word-break:break-word;font:12px/1.65 Consolas,monospace;color:#d9ded5}
+    .recording{display:none;border:1px solid rgba(216,255,82,.25);background:rgba(216,255,82,.05);padding:13px;margin:0 0 14px;border-radius:8px;color:#dbeaac;font-size:12px}.recording.show{display:block}.spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(216,255,82,.25);border-top-color:var(--acid);border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;vertical-align:-2px}@keyframes spin{to{transform:rotate(360deg)}}
+    @media(max-width:1050px){.shell{grid-template-columns:1fr}aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);display:block;padding:16px 20px}.brand{margin:0}.nav,.nav-label,.local{display:none}main{padding:28px 20px}.hero,.workspace{grid-template-columns:1fr}.proof-strip{margin-top:10px}}
+    @media(max-width:620px){h1{font-size:48px}.proof-strip,.grid2,.score-row{grid-template-columns:1fr}.proof{border-right:0;border-bottom:1px solid var(--line)}.proof:last-child{border:0}.topbar{align-items:flex-start;gap:12px}.status-mini{display:none}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="brand"><div class="mark">F2S</div><div><b>FLOW2SKILL</b><small>LOCAL COMPILER</small></div></div>
+    <div class="nav-label">Pipeline</div>
+    <div class="nav">
+      <button class="active"><span class="n">01</span> Capture flow</button>
+      <button><span class="n">02</span> Compile artifacts</button>
+      <button><span class="n">03</span> Prove replay</button>
+    </div>
+    <div class="local"><strong><span class="pulse"></span>LOCAL ONLY</strong>Recorder-owned raw capture is deleted on completion or cancellation. Protected inputs become environment variables.</div>
+  </aside>
+
+  <main>
+    <div class="topbar"><div class="kicker">Human demonstration → deterministic automation</div><div class="status-mini" id="health">CHECKING LOCAL ENGINE</div></div>
+    <section class="hero">
+      <div>
+        <h1>Do it once.<br><em>Operationalize it forever.</em></h1>
+        <p class="lede">Flow2Skill turns a successful browser demonstration into the two artifacts agents usually skip: a readable operating skill and a regression test that can prove the flow still works.</p>
+      </div>
+      <div class="proof-strip">
+        <div class="proof"><b>01</b><span>Demonstrate</span></div>
+        <div class="proof"><b>02</b><span>Compile</span></div>
+        <div class="proof"><b>03</b><span>Verify</span></div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="card">
+        <div class="card-head"><h2>Capture bay</h2><span class="step-chip">STEP 01</span></div>
+        <div class="tabs"><button class="tab active" data-tab="record">Record live</button><button class="tab" data-tab="compile">Compile codegen</button></div>
+
+        <div class="pane active" id="pane-record">
+          <div class="grid2">
+            <div class="field"><label>Workflow name</label><input id="r-name" value="My reliable browser flow" maxlength="80"></div>
+            <div class="field"><label>Start URL</label><input id="r-url" value="https://example.com" spellcheck="false"></div>
+          </div>
+          <div class="field"><label>Intent</label><input id="r-intent" value="Complete the demonstrated browser workflow and prove the expected state appears."></div>
+          <div class="grid2">
+            <div class="field"><label>Mechanical success</label><input id="r-success" value="All recorded browser assertions pass."></div>
+            <div class="field"><label>Success text (optional)</label><input id="r-success-text" placeholder="e.g. Order confirmed"></div>
+          </div>
+          <label class="check"><input type="checkbox" id="r-redact" checked><span>Protect every typed value as an environment variable. Recommended for sharable skills.</span></label>
+          <div class="recording" id="recording"><span class="spinner"></span><b>Recorder is open.</b> Complete the browser flow, add an assertion in Playwright Inspector, then close the recorder window.</div>
+          <div class="actions"><button class="primary" id="record-btn">Open browser recorder</button><span class="hint">Uses local Chrome. Nothing is uploaded.</span></div>
+        </div>
+
+        <div class="pane" id="pane-compile">
+          <div class="grid2">
+            <div class="field"><label>Workflow name</label><input id="c-name" value="Agent release gate" maxlength="80"></div>
+            <div class="field"><label>Intent</label><input id="c-intent" value="Validate a protected agent configuration and prove it is ready."></div>
+          </div>
+          <div class="field"><label>Playwright Python codegen</label><textarea id="c-code" spellcheck="false" placeholder="Paste Playwright python-pytest output here..."></textarea></div>
+          <div class="grid2">
+            <div class="field"><label>Mechanical success</label><input id="c-success" value="The exact deterministic ready state is visible."></div>
+            <div class="field"><label>Success text (optional)</label><input id="c-success-text" placeholder="e.g. Results"></div>
+          </div>
+          <label class="check"><input type="checkbox" id="c-redact" checked><span>Redact every typed value. Sensitive selectors are always protected automatically.</span></label>
+          <div class="actions"><button class="primary" id="compile-btn">Compile artifacts</button><button class="ghost" id="sample-btn">Load sample</button><button class="secondary" id="demo-btn">Generate safe demo</button></div>
+        </div>
+      </div>
+
+      <div class="right-stack">
+        <div class="card">
+          <div class="card-head"><h2>Artifact forge</h2><span class="step-chip">STEP 02</span></div>
+          <div class="artifact-body">
+            <div class="empty" id="empty"><div><div class="glyph">{ }</div><p>Your compiled skill, workflow manifest and executable proof will appear here.</p></div></div>
+            <div class="result" id="result">
+              <div class="score-row">
+                <div class="metric"><b id="m-actions">0</b><span>Steps</span></div>
+                <div class="metric"><b id="m-assertions">0</b><span>Assertions</span></div>
+                <div class="metric"><b id="m-protected">0</b><span>Protected</span></div>
+              </div>
+              <div class="artifact-list" id="artifact-list"></div>
+              <div class="warnings" id="warnings"></div>
+              <div class="path" id="output-path"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Recent workspaces</h2><span class="step-chip">LOCAL</span></div>
+          <div class="recent" id="recent"><div class="hint">No compiled flows yet.</div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+<dialog id="preview-dialog"><div class="modal-head"><b id="preview-title">ARTIFACT</b><button id="close-preview" aria-label="Close">×</button></div><pre class="preview" id="preview"></pre></dialog>
+
+<script>
+const TOKEN = "__FLOW2SKILL_TOKEN__";
+const $ = id => document.getElementById(id);
+const api = async (url, options={}) => {
+  options.headers = {...(options.headers||{}), "X-Flow2Skill-Token": TOKEN};
+  if (options.body) options.headers["Content-Type"] = "application/json";
+  const response = await fetch(url, options);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || `Request failed: ${response.status}`);
+  return data;
+};
+const toast = (message, error=false) => {
+  const el=$('toast'); el.textContent=message; el.className='toast show'+(error?' error':'');
+  clearTimeout(window.toastTimer); window.toastTimer=setTimeout(()=>el.className='toast',4500);
+};
+const val = id => $(id).value.trim();
+
+for (const tab of document.querySelectorAll('.tab')) tab.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(x=>x.classList.remove('active'));
+  tab.classList.add('active'); $('pane-'+tab.dataset.tab).classList.add('active');
+});
+
+const SAMPLE = `from playwright.sync_api import Page, expect
+
+
+def test_agent_release_gate(page: Page) -> None:
+    page.goto("${location.origin}/demo")
+    page.get_by_label("API token").fill("synthetic-demo-value-7Q9X")
+    page.get_by_role("button", name="Validate workflow").click()
+    expect(page.get_by_text("Ready for deterministic replay", exact=True)).to_be_visible()
+`;
+$('sample-btn').addEventListener('click',()=>{$('c-code').value=SAMPLE;toast('Sample codegen loaded.');});
+
+const renderResult = data => {
+  const flow=data.workflow, workspace=data.workspace;
+  $('empty').style.display='none'; $('result').classList.add('show');
+  $('m-actions').textContent=flow.actions.length;
+  $('m-assertions').textContent=flow.actions.filter(a=>a.kind.startsWith('assert_')).length;
+  $('m-protected').textContent=flow.variables.length;
+  const files=Object.values(data.files||{});
+  $('artifact-list').innerHTML='';
+  for(const file of files){
+    const row=document.createElement('div');row.className='artifact';
+    const code=document.createElement('code');code.textContent=file;
+    const button=document.createElement('button');button.textContent='PREVIEW ↗';
+    button.addEventListener('click',()=>previewArtifact(workspace,file));
+    row.append(code,button);$('artifact-list').append(row);
+  }
+  $('warnings').style.display=flow.warnings.length?'block':'none';
+  $('warnings').textContent=flow.warnings.length?flow.warnings.join(' · '):'';
+  $('output-path').textContent=`LOCAL WORKSPACE / ${workspace}`;
+  loadWorkspaces();
+};
+
+const compile = async () => {
+  const btn=$('compile-btn');btn.disabled=true;btn.textContent='Compiling…';
+  try{
+    const data=await api('/api/compile',{method:'POST',body:JSON.stringify({
+      name:val('c-name'),intent:val('c-intent'),code:$('c-code').value,
+      success_criteria:val('c-success'),success_text:val('c-success-text'),
+      redact_all_inputs:$('c-redact').checked
+    })}); renderResult(data);toast('Skill, manifest and pytest proof compiled.');
+  }catch(e){toast(e.message,true)}finally{btn.disabled=false;btn.textContent='Compile artifacts'}
+};
+$('compile-btn').addEventListener('click',compile);
+$('demo-btn').addEventListener('click',async()=>{
+  try{const data=await api('/api/demo',{method:'POST',body:'{}'});renderResult(data);toast('Safe demo bundle generated.')}catch(e){toast(e.message,true)}
+});
+
+let pollTimer=null, currentJobId=null;
+$('record-btn').addEventListener('click',async()=>{
+  const btn=$('record-btn');
+  if(currentJobId){
+    try{
+      await api(`/api/record/${currentJobId}/cancel`,{method:'POST',body:'{}'});
+      clearTimeout(pollTimer);currentJobId=null;$('recording').classList.remove('show');
+      btn.textContent='Open browser recorder';toast('Recording cancelled. Raw capture deleted.');
+    }catch(e){toast(e.message,true)}
+    return;
+  }
+  btn.textContent='Cancel recording';$('recording').classList.add('show');
+  try{
+    const job=await api('/api/record/start',{method:'POST',body:JSON.stringify({
+      name:val('r-name'),url:val('r-url'),intent:val('r-intent'),
+      success_criteria:val('r-success'),success_text:val('r-success-text'),
+      redact_all_inputs:$('r-redact').checked,channel:'chrome'
+    })});
+    currentJobId=job.job_id;
+    const poll=async()=>{
+      try{
+        const state=await api('/api/record/'+job.job_id);
+        if(state.state==='recording'){pollTimer=setTimeout(poll,1200);return}
+        $('recording').classList.remove('show');currentJobId=null;btn.textContent='Open browser recorder';
+        if(state.state==='complete'){renderResult({...state,workspace:state.workflow.slug,path:state.workspace,files:Object.fromEntries(Object.entries(state.files).map(([k,v])=>[k,v.split(/[\\/]/).pop()]))});toast('Recording compiled. Raw capture deleted.');}
+        else toast(state.error||'Recording failed.',true);
+      }catch(e){$('recording').classList.remove('show');currentJobId=null;btn.textContent='Open browser recorder';toast(e.message,true)}
+    }; poll();
+  }catch(e){$('recording').classList.remove('show');currentJobId=null;btn.textContent='Open browser recorder';toast(e.message,true)}
+});
+
+const previewArtifact=async(workspace,file)=>{
+  try{const data=await api(`/api/artifact?workspace=${encodeURIComponent(workspace)}&file=${encodeURIComponent(file)}`);$('preview-title').textContent=data.file;$('preview').textContent=data.content;$('preview-dialog').showModal();}catch(e){toast(e.message,true)}
+};
+$('close-preview').addEventListener('click',()=> $('preview-dialog').close());
+$('preview-dialog').addEventListener('click',e=>{if(e.target===$('preview-dialog'))$('preview-dialog').close()});
+
+const loadWorkspace = async item => {
+  const flow=await api(`/api/artifact?workspace=${encodeURIComponent(item.slug)}&file=flow.json`);
+  const parsed=JSON.parse(flow.content);
+  renderResult({workspace:item.slug,path:item.path,workflow:parsed,files:{flow_json:'flow.json',flow_yaml:'flow.yaml',skill:'SKILL.md',test:`test_${item.slug.replaceAll('-','_')}.py`,readme:'README.md'}});
+};
+const loadWorkspaces=async()=>{
+  try{
+    const data=await api('/api/workspaces');const root=$('recent');root.innerHTML='';
+    if(!data.workspaces.length){root.innerHTML='<div class="hint">No compiled flows yet.</div>';return}
+    for(const item of data.workspaces.slice(0,6)){
+      const row=document.createElement('div');row.className='recent-item';
+      const text=document.createElement('div');const b=document.createElement('b');b.textContent=item.name;
+      const s=document.createElement('small');s.textContent=`${item.actions} steps · ${item.assertions} assertions`;
+      const open=document.createElement('button');open.textContent='OPEN';open.addEventListener('click',()=>loadWorkspace(item));
+      text.append(b,s);row.append(text,open);root.append(row);
+    }
+  }catch(e){toast(e.message,true)}
+};
+(async()=>{try{await api('/api/health');$('health').textContent='ENGINE READY · LOCAL ONLY';loadWorkspaces()}catch(e){$('health').textContent='ENGINE OFFLINE';toast(e.message,true)}})();
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flow2skill"
+version = "0.1.0"
+description = "Record a browser workflow once, export a portable agent skill and deterministic Playwright regression test."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Dhiraj Das" }]
+keywords = ["playwright", "browser-automation", "ai-agents", "agent-skills", "testing"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = ["playwright==1.61.0"]
+
+[project.optional-dependencies]
+dev = ["build>=1.2", "pytest>=8", "ruff>=0.9", "twine>=6"]
+
+[project.scripts]
+flow2skill = "flow2skill.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/godhiraj-code/flow2skill"
+Repository = "https://github.com/godhiraj-code/flow2skill"
+Issues = "https://github.com/godhiraj-code/flow2skill/issues"
+Changelog = "https://github.com/godhiraj-code/flow2skill/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+flow2skill = ["ui/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
