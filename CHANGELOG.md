@@ -6,6 +6,8 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Studio fields have associated labels; capture tabs support arrow/Home/End navigation and expose selection. Artifact previews have descriptive names, a named dialog, and keyboard-scrollable content. Errors persist until dismissed or superseded by success; workspace-load failures are shown instead of becoming unhandled rejections.
+
 - Compilation and manifest loading reject incompatible page/element targets and unsupported selector options instead of changing their meaning during export. Boolean locator indices are rejected. Real-browser coverage verifies valid test-id and page URL assertions in CLI replay and standalone proofs.
 
 - CI executes exported README commands in native Windows PowerShell and Command Prompt, and bash on Linux, against the built wheel. Tests require a real passing browser proof and exercise bundle paths containing spaces.

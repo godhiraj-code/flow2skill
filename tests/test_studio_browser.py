@@ -69,7 +69,7 @@ def test_studio_demo_exports_preview_and_executable_proof(studio):
     page, root = studio
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
-    page.get_by_role("button", name="Compile codegen").click()
+    page.get_by_role("tab", name="Compile codegen").click()
     page.locator("#demo-btn").click()
     expect(page.locator("#result")).to_be_visible()
     expect(page.locator("#m-assertions")).to_have_text("1")
@@ -218,3 +218,65 @@ def test_page_and_element_targets_match_in_both_execution_paths(tmp_path):
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "1 passed" in result.stdout
+
+
+def test_keyboard_capture_error_recovery_and_preview(studio):
+    from playwright.sync_api import expect
+
+    page, _ = studio
+    record = page.get_by_role("tab", name="Record live")
+    compile_tab = page.get_by_role("tab", name="Compile codegen")
+    record.focus()
+    record.press("ArrowRight")
+    expect(compile_tab).to_be_focused()
+    expect(compile_tab).to_have_attribute("aria-selected", "true")
+    expect(record).to_have_attribute("tabindex", "-1")
+    expect(page.get_by_role("tabpanel", name="Record live")).to_have_count(0)
+    compile_tab.press("Home")
+    expect(record).to_be_focused()
+    record.press("End")
+    compile_tab.press("Tab")
+    panel = page.get_by_role("tabpanel", name="Compile codegen")
+    expect(panel.get_by_label("Workflow name", exact=True)).to_be_focused()
+    panel.get_by_label("Workflow name", exact=True).fill("Keyboard trial")
+    panel.get_by_label("Playwright Python codegen", exact=True).fill("def broken(:")
+    compile_button = panel.get_by_role("button", name="Compile artifacts", exact=True)
+    compile_button.focus()
+    compile_button.press("Enter")
+    alert = page.get_by_role("alert")
+    expect(alert).to_contain_text("not valid Python")
+    # Error feedback must remain available after the former toast timeout.
+    page.wait_for_timeout(4700)
+    expect(alert).to_be_visible()
+    expect(compile_button).to_be_enabled()
+    demo = panel.get_by_role("button", name="Generate safe demo")
+    demo.focus()
+    demo.press("Enter")
+    expect(page.locator("#result")).to_be_visible()
+    expect(page.locator("#error-feedback")).not_to_be_visible()
+    expect(page.get_by_role("status")).to_contain_text("Safe demo bundle generated")
+    preview = page.get_by_role("button", name="Preview SKILL.md", exact=True)
+    preview.focus()
+    preview.press("Enter")
+    dialog = page.get_by_role("dialog", name="SKILL.md", exact=True)
+    expect(dialog).to_be_visible()
+    expect(dialog.get_by_role("button", name="Close", exact=True)).to_be_focused()
+    page.keyboard.press("Tab")
+    expect(dialog.get_by_label("Artifact contents")).to_be_focused()
+    page.keyboard.press("Escape")
+    expect(dialog).not_to_be_visible()
+    expect(preview).to_be_focused()
+
+    page.route(
+        "**/api/artifact?**",
+        lambda route: route.fulfill(status=503, json={"error": "Workspace unavailable"}),
+    )
+    recent = page.locator("#recent").get_by_role("button").first
+    recent.focus()
+    recent.press("Enter")
+    expect(alert).to_have_text("Workspace unavailable")
+    dismiss = page.get_by_role("button", name="Dismiss error", exact=True)
+    dismiss.focus()
+    dismiss.press("Enter")
+    expect(page.locator("#error-feedback")).not_to_be_visible()
+    expect(compile_tab).to_be_focused()
