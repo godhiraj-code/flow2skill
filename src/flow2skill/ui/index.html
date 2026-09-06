@@ -229,7 +229,7 @@ $('record-btn').addEventListener('click',async()=>{
     const job=await api('/api/record/start',{method:'POST',body:JSON.stringify({
       name:val('r-name'),url:val('r-url'),intent:val('r-intent'),
       success_criteria:val('r-success'),success_text:val('r-success-text'),
-      redact_all_inputs:$('r-redact').checked,channel:'chrome'
+      redact_all_inputs:$('r-redact').checked
     })});
     currentJobId=job.job_id;
     const poll=async()=>{

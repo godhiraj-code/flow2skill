@@ -247,3 +247,14 @@ def test_preflight_accepts_explicit_empty_values_and_dry_run_needs_no_values(
     monkeypatch.setenv("FLOW2SKILL_ALLOW_SIDE_EFFECTS", "1")
     with pytest.raises(BrowserReached):
         namespace["test_empty_input"]()
+
+
+def test_recorder_defaults_to_managed_browser_and_preserves_explicit_channel(tmp_path):
+    from flow2skill.cli import build_parser
+
+    args = build_parser().parse_args(["record", "https://example.test", "--name", "Example"])
+    assert args.channel is None
+    command = codegen_command(url=args.url, raw_output=tmp_path / "capture.py")
+    assert not any(arg.startswith("--channel=") for arg in command)
+    command = codegen_command(url=args.url, raw_output=tmp_path / "capture.py", channel="chrome")
+    assert "--channel=chrome" in command

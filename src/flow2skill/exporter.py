@@ -97,9 +97,22 @@ from __future__ import annotations
 
 import os
 import re
+from contextlib import contextmanager, suppress
 
 import pytest
 from playwright.sync_api import expect, sync_playwright
+
+
+@contextmanager
+def managed_resource(resource):
+    try:
+        yield resource
+    except BaseException:
+        with suppress(Exception):
+            resource.close()
+        raise
+    else:
+        resource.close()
 
 
 def require_env(name: str) -> str:
@@ -129,14 +142,12 @@ def test_{workflow.slug.replace("-", "_")}() -> None:{risk_guard}
         launch_options = {{"headless": os.getenv("FLOW2SKILL_HEADED") != "1"}}
         if channel := os.getenv("FLOW2SKILL_CHANNEL"):
             launch_options["channel"] = channel
-        browser = playwright.chromium.launch(**launch_options)
-        context = browser.new_context()
-        page = context.new_page()
-        try:
+        with (
+            managed_resource(playwright.chromium.launch(**launch_options)) as browser,
+            managed_resource(browser.new_context()) as context,
+        ):
+            page = context.new_page()
 {chr(10).join(body)}
-        finally:
-            context.close()
-            browser.close()
 """
     try:
         ast.parse(generated)

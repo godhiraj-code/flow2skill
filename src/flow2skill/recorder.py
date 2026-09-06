@@ -24,12 +24,12 @@ def codegen_command(
     *,
     url: str,
     raw_output: Path,
-    channel: str = "chrome",
+    channel: str | None = None,
     test_id_attribute: str = "data-testid",
 ) -> list[str]:
     if not re.match(r"^(https?|file)://", url, re.IGNORECASE):
         raise FlowValidationError("Recorder URL must use http://, https://, or file://")
-    if not SAFE_OPTION_RE.fullmatch(channel):
+    if channel is not None and not SAFE_OPTION_RE.fullmatch(channel):
         raise FlowValidationError("Browser channel contains unsupported characters")
     if not SAFE_OPTION_RE.fullmatch(test_id_attribute):
         raise FlowValidationError("Test-id attribute contains unsupported characters")
@@ -43,7 +43,7 @@ def codegen_command(
         "codegen",
         "--target=python-pytest",
         f"--output={raw_output}",
-        f"--channel={channel}",
+        *([f"--channel={channel}"] if channel else []),
         f"--test-id-attribute={test_id_attribute}",
         "--block-service-workers",
         url,
@@ -208,7 +208,7 @@ class RecorderManager:
         success_criteria: str,
         success_text: str | None,
         redact_all_inputs: bool = True,
-        channel: str = "chrome",
+        channel: str | None = None,
     ) -> RecordingJob:
         if not url.lower().startswith(("http://", "https://", "file://")):
             raise FlowValidationError("Recorder URL must use http://, https://, or file://")
@@ -278,7 +278,7 @@ def record_blocking(
     success_criteria: str,
     success_text: str | None = None,
     redact_all_inputs: bool = True,
-    channel: str = "chrome",
+    channel: str | None = None,
 ) -> dict[str, Any]:
     manager = RecorderManager(output_root)
     job = manager.start(

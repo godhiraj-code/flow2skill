@@ -2,11 +2,25 @@ from __future__ import annotations
 
 import os
 import re
+from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import Any
 
 from .exporter import describe_action
 from .model import Action, FlowValidationError, Selector, Workflow
+
+
+@contextmanager
+def managed_resource(resource: Any):
+    """Always close a browser resource without replacing an in-flight failure."""
+    try:
+        yield resource
+    except BaseException:
+        with suppress(Exception):
+            resource.close()
+        raise
+    else:
+        resource.close()
 
 
 def resolve_value(value: Any) -> Any:
@@ -141,19 +155,20 @@ def replay(
         launch_options: dict[str, Any] = {"headless": not headed}
         if channel:
             launch_options["channel"] = channel
-        browser = playwright.chromium.launch(**launch_options)
-        context = browser.new_context()
-        page = context.new_page()
-        try:
-            for action in workflow.actions:
-                execute_action(page, action)
-            screenshot = evidence_root / f"{workflow.slug}-passed.png"
-            page.screenshot(path=str(screenshot), full_page=True)
-            return f"PASS {workflow.name}\nEvidence: {screenshot}"
-        except Exception:
-            screenshot = evidence_root / f"{workflow.slug}-failed.png"
-            page.screenshot(path=str(screenshot), full_page=True)
-            raise
-        finally:
-            context.close()
-            browser.close()
+        with (
+            managed_resource(playwright.chromium.launch(**launch_options)) as browser,
+            managed_resource(browser.new_context()) as context,
+        ):
+            page = context.new_page()
+            try:
+                for action in workflow.actions:
+                    execute_action(page, action)
+                screenshot = evidence_root / f"{workflow.slug}-passed.png"
+                page.screenshot(path=str(screenshot), full_page=True)
+                return f"PASS {workflow.name}\nEvidence: {screenshot}"
+            except Exception:
+                screenshot = evidence_root / f"{workflow.slug}-failed.png"
+                # A closed page or full disk must not hide the actual run failure.
+                with suppress(Exception):
+                    page.screenshot(path=str(screenshot), full_page=True)
+                raise

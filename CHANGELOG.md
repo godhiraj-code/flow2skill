@@ -6,6 +6,9 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Recording and Studio now default to managed Chromium, matching installation instructions and doctor checks; explicit browser channels remain supported.
+- CLI replay and exported tests close resources even when context/page creation fails, without replacing the original error with cleanup failures. Failed screenshots no longer mask replay errors.
+
 - CLI replay and generated tests check every required runtime variable before opening the browser, avoiding partial execution when a later input is missing. Explicit empty strings remain valid; dry runs need no values.
 
 - Added a `test` installation extra so the documented demo includes its pytest dependency.

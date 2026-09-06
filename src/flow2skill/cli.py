@@ -51,7 +51,10 @@ def build_parser() -> argparse.ArgumentParser:
     record.add_argument("--success", default="The recorded assertions pass.")
     record.add_argument("--success-text")
     record.add_argument("--out", type=Path, default=DEFAULT_WORKSPACES)
-    record.add_argument("--channel", default="chrome")
+    record.add_argument(
+        "--channel",
+        help="Use an installed browser channel, e.g. chrome; defaults to managed Chromium",
+    )
     record.add_argument(
         "--protect-inputs",
         action=argparse.BooleanOptionalAction,
@@ -128,7 +131,7 @@ def doctor() -> int:
     for label, passed, detail in checks:
         print(f"[{'PASS' if passed else 'FAIL'}] {label}: {detail}")
     if all(passed for _, passed, _ in checks):
-        print("Flow2Skill is ready to record and replay workflows.")
+        print("Recording and replay prerequisites were found for managed Chromium.")
         return 0
     print("Run `python -m playwright install chromium` after fixing missing prerequisites.")
     return 2

@@ -65,6 +65,10 @@ python -m venv .venv
 
 Windows source checkouts also include `launch-flow2skill.bat`. Installed wheels use the `flow2skill` console command; the batch launcher is not installed by the wheel.
 
+Recording uses Playwright-managed Chromium by default, matching `doctor` and the browser
+installation above. To use a separately installed Google Chrome instead, pass `--channel chrome`
+to `flow2skill record`. Studio uses managed Chromium.
+
 Studio opens at `http://127.0.0.1:8765` and writes bundles to `~/Flow2SkillWorkspaces` unless another root is supplied.
 
 ## Thirty-second proof

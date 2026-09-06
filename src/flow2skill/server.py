@@ -300,8 +300,7 @@ def serve(
                         or "The recorded assertions pass.",
                         success_text=self._payload_text(payload, "success_text").strip() or None,
                         redact_all_inputs=self._payload_bool(payload, "redact_all_inputs"),
-                        channel=self._payload_text(payload, "channel", default="chrome")
-                        or "chrome",
+                        channel=self._payload_text(payload, "channel", default="") or None,
                     )
                     self._json(
                         {
