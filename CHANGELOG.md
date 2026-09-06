@@ -14,6 +14,8 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Protected inputs no longer rewrite generated placeholder names. Longer protected values retain precedence; ambiguous crossing overlaps fail with a value-free diagnostic instead of exposing part of an input. Browser regression coverage verifies replay and standalone export with substituted inputs.
+
 - Bundle exports stage all artifacts before replacement, restore previous files on write failure, and serialize writers with a workspace lock. Incomplete rollback preserves backups and the lock for documented manual recovery.
 
 - Studio fields have associated labels; capture tabs support arrow/Home/End navigation and expose selection. Artifact previews have descriptive names, a named dialog, and keyboard-scrollable content. Errors persist until dismissed or superseded by success; workspace-load failures are shown instead of becoming unhandled rejections.
