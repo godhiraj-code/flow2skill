@@ -4,7 +4,7 @@ import argparse
 import json
 import shutil
 import sys
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 from importlib.resources import files
 from pathlib import Path
 
@@ -96,7 +96,9 @@ def build_parser() -> argparse.ArgumentParser:
     demo = commands.add_parser("demo", help="Generate an executable local sample bundle")
     demo.add_argument("--out", type=Path, default=Path("flow2skill-demo"))
 
-    commands.add_parser("doctor", help="Check recorder and replay prerequisites")
+    doctor_cmd = commands.add_parser("doctor", help="Check prerequisites and show repair steps")
+    doctor_cmd.add_argument("--mode", choices=["all", "compile", "record", "replay"], default="all")
+    doctor_cmd.add_argument("--json", action="store_true", help="Print machine-readable checks")
 
     studio = commands.add_parser("studio", help="Launch the local Flow2Skill Studio UI")
     studio.add_argument("--host", default="127.0.0.1")
@@ -106,35 +108,99 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def doctor() -> int:
-    checks: list[tuple[str, bool, str]] = []
-    checks.append(("Python", sys.version_info >= (3, 10), sys.version.split()[0]))
-    playwright_version = version("playwright")
-    checks.append(
-        (
-            "Python Playwright",
-            playwright_version == DEFAULT_CODEGEN_VERSION,
-            f"{playwright_version} (expected {DEFAULT_CODEGEN_VERSION})",
+def doctor(*, mode: str = "all", json_output: bool = False) -> int:
+    if mode not in {"all", "compile", "record", "replay"}:
+        raise ValueError("Unknown doctor mode")
+    checks = []
+
+    def check(name, passed, detail, remedy, required=True):
+        checks.append(
+            {
+                "name": name,
+                "passed": passed,
+                "required": required,
+                "detail": detail,
+                "remedy": None if passed else remedy,
+            }
         )
+
+    check(
+        "Python",
+        sys.version_info >= (3, 10),
+        sys.version.split()[0],
+        "Install Python 3.10 or newer and recreate the environment.",
     )
-    checks.append(("Node.js", shutil.which("node") is not None, shutil.which("node") or "missing"))
-    checks.append(("npx", shutil.which("npx") is not None, shutil.which("npx") or "missing"))
     try:
-        from playwright.sync_api import sync_playwright
+        installed = version("playwright")
+    except PackageNotFoundError:
+        installed = "missing"
+    check(
+        "Python Playwright",
+        installed == DEFAULT_CODEGEN_VERSION,
+        f"{installed} (expected {DEFAULT_CODEGEN_VERSION})",
+        f'python -m pip install "playwright=={DEFAULT_CODEGEN_VERSION}"',
+    )
 
-        with sync_playwright() as playwright:
-            browser_path = Path(playwright.chromium.executable_path)
-        checks.append(("Managed Chromium", browser_path.is_file(), str(browser_path)))
-    except Exception as exc:
-        checks.append(("Managed Chromium", False, f"{type(exc).__name__}: {exc}"))
+    if mode in {"all", "record"}:
+        for label, command in [("Node.js", "node"), ("npx", "npx")]:
+            location = shutil.which(command)
+            check(
+                label,
+                location is not None,
+                location or "missing",
+                "Install Node.js with npm/npx, then reopen the terminal so PATH is refreshed.",
+            )
+    if mode in {"all", "record", "replay"}:
+        try:
+            from playwright.sync_api import sync_playwright
 
-    for label, passed, detail in checks:
-        print(f"[{'PASS' if passed else 'FAIL'}] {label}: {detail}")
-    if all(passed for _, passed, _ in checks):
-        print("Recording and replay prerequisites were found for managed Chromium.")
-        return 0
-    print("Run `python -m playwright install chromium` after fixing missing prerequisites.")
-    return 2
+            with sync_playwright() as playwright:
+                browser_path = Path(playwright.chromium.executable_path)
+            check(
+                "Managed Chromium",
+                browser_path.is_file(),
+                str(browser_path),
+                "python -m playwright install chromium",
+            )
+        except Exception as exc:
+            check(
+                "Managed Chromium",
+                False,
+                f"{type(exc).__name__}: {exc}",
+                "Repair the Python Playwright installation, then run python -m playwright install chromium.",
+            )
+    if mode in {"all", "replay"}:
+        try:
+            pytest_version = version("pytest")
+        except PackageNotFoundError:
+            pytest_version = None
+        check(
+            "pytest (exported proofs)",
+            pytest_version is not None,
+            pytest_version or "missing; CLI replay does not require pytest",
+            'python -m pip install "flow2skill[test]"',
+            required=False,
+        )
+
+    healthy = all(item["passed"] for item in checks if item["required"])
+    note = "These checks inspect prerequisites; they do not launch a browser or prove a recorded workflow."
+    if json_output:
+        print(
+            json.dumps({"mode": mode, "healthy": healthy, "checks": checks, "note": note}, indent=2)
+        )
+    else:
+        for item in checks:
+            state = "PASS" if item["passed"] else "FAIL" if item["required"] else "WARN"
+            print(f"[{state}] {item['name']}: {item['detail']}")
+            if item["remedy"]:
+                print(f"  Fix: {item['remedy']}")
+        print(
+            "Selected prerequisites found."
+            if healthy
+            else "Required prerequisites are missing or mismatched."
+        )
+        print(note)
+    return 0 if healthy else 2
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -195,7 +261,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"pytest -q {test_path}"
             )
         elif args.command == "doctor":
-            return doctor()
+            return doctor(mode=args.mode, json_output=args.json)
         elif args.command == "studio":
             from .server import serve
 

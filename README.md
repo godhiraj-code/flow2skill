@@ -71,6 +71,24 @@ to `flow2skill record`. Studio uses managed Chromium.
 
 Studio opens at `http://127.0.0.1:8765` and writes bundles to `~/Flow2SkillWorkspaces` unless another root is supplied.
 
+## Diagnose setup
+
+```bash
+flow2skill doctor
+flow2skill doctor --mode compile
+flow2skill doctor --mode record
+flow2skill doctor --mode replay --json
+```
+
+The default checks recording and replay prerequisites. Compile mode does not require
+Node.js or a browser; replay mode does not require Node.js. Each failed check includes
+a repair instruction. Missing pytest is a warning for exported proofs, because CLI
+replay itself does not use pytest. Exit code `2` means a required prerequisite is
+missing or mismatched; `0` means the selected prerequisite checks passed.
+
+Doctor inspects installation state without launching a browser. Run the demo proof
+to verify real browser execution; a successful setup check is not workflow evidence.
+
 ## Thirty-second proof
 
 Generate an entirely local sample bundle:

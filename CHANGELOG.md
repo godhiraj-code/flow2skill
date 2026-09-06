@@ -6,6 +6,8 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Doctor supports compile/record/replay scopes and JSON output, reports per-check repair steps, handles missing package metadata, and distinguishes optional pytest from required dependencies.
+
 - POSIX recorder cancellation stops its dedicated process group, including children left behind by an exited npm wrapper, before removing captures. Failed Windows tree termination is reported as unconfirmed.
 - Status finalization and cancellation are serialized; cancelling an already completed job preserves its result.
 
