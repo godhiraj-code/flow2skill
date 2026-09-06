@@ -6,6 +6,8 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Bundle exports stage all artifacts before replacement, restore previous files on write failure, and serialize writers with a workspace lock. Incomplete rollback preserves backups and the lock for documented manual recovery.
+
 - Studio fields have associated labels; capture tabs support arrow/Home/End navigation and expose selection. Artifact previews have descriptive names, a named dialog, and keyboard-scrollable content. Errors persist until dismissed or superseded by success; workspace-load failures are shown instead of becoming unhandled rejections.
 
 - Compilation and manifest loading reject incompatible page/element targets and unsupported selector options instead of changing their meaning during export. Boolean locator indices are rejected. Real-browser coverage verifies valid test-id and page URL assertions in CLI replay and standalone proofs.

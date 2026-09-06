@@ -7,6 +7,7 @@ from typing import Any
 
 from .constants import PLAYWRIGHT_VERSION
 from .model import Action, FlowValidationError, Selector, Workflow
+from .storage import bundle_write_lock, replace_bundle
 
 
 def selector_expression(selector: Selector) -> str:
@@ -389,16 +390,6 @@ the workflow or establish that its assertions pass; run the proof below to verif
 def write_bundle(workflow: Workflow, output_dir: str | Path) -> dict[str, Path]:
     workflow.validate()
     root = Path(output_dir).resolve()
-    root.mkdir(parents=True, exist_ok=True)
-    previous_test: Path | None = None
-    manifest_path = root / "flow.json"
-    if manifest_path.is_file():
-        try:
-            previous_workflow = Workflow.read(manifest_path)
-        except (OSError, ValueError):
-            pass
-        else:
-            previous_test = root / f"test_{previous_workflow.slug.replace('-', '_')}.py"
     payload = workflow.to_dict()
     paths = {
         "flow_json": root / "flow.json",
@@ -407,17 +398,24 @@ def write_bundle(workflow: Workflow, output_dir: str | Path) -> dict[str, Path]:
         "test": root / f"test_{workflow.slug.replace('-', '_')}.py",
         "readme": root / "README.md",
     }
-    if (
-        previous_test is not None
-        and previous_test != paths["test"]
-        and (previous_test.is_file() or previous_test.is_symlink())
-    ):
-        previous_test.unlink()
-    paths["flow_json"].write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
-    paths["flow_yaml"].write_text("\n".join(_yaml_lines(payload)) + "\n", encoding="utf-8")
-    paths["skill"].write_text(render_skill(workflow), encoding="utf-8")
-    paths["test"].write_text(render_test(workflow), encoding="utf-8")
-    paths["readme"].write_text(render_readme(workflow), encoding="utf-8")
+    # Render everything before touching any existing artifact.
+    contents = {
+        paths["flow_yaml"].name: "\n".join(_yaml_lines(payload)) + "\n",
+        paths["skill"].name: render_skill(workflow),
+        paths["test"].name: render_test(workflow),
+        paths["readme"].name: render_readme(workflow),
+        # Publish the new manifest after the artifacts it describes.
+        paths["flow_json"].name: json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+    }
+    with bundle_write_lock(root):
+        previous_test = None
+        manifest_path = paths["flow_json"]
+        if manifest_path.is_file():
+            try:
+                previous_workflow = Workflow.read(manifest_path)
+            except (OSError, ValueError):
+                pass
+            else:
+                previous_test = f"test_{previous_workflow.slug.replace('-', '_')}.py"
+        replace_bundle(root, contents, previous_test)
     return paths

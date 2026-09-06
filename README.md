@@ -237,3 +237,23 @@ Flow2Skill does not include cloud sync, a browser extension, shared secret stora
 ## License
 
 MIT
+
+## Bundle recovery
+
+An export replaces the generated files in its output directory; use a different output
+directory to retain a separate version. All five artifacts are rendered and staged
+before replacement. A failed replacement attempts to restore the previous files,
+including its generated test. Unrelated files are preserved. Exports to the same
+directory are serialized with `.flow2skill-write.lock`; wait for the current export
+to finish before reading or executing the bundle. The set of files is not an atomic
+directory snapshot for concurrent readers.
+
+A killed process or power loss can leave the lock and a `.flow2skill-stage-*` directory.
+Do not remove a lock while an export is running. Check the PID recorded in it and
+confirm that export has stopped. Keep a copy of the whole output directory before
+recovery. Staging `old/` contains backups of files that existed before replacement;
+`new/` contains any staged files that were not yet published. Restore the old files
+and remove newly introduced generated files, or regenerate the bundle into a fresh
+directory from the original recording. Do not execute a mixed or unverified bundle.
+Remove the stale lock only after recovery; retained staging directories can then be
+removed. Incomplete rollback reports its recovery directory and keeps the lock.
