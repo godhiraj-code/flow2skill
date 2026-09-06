@@ -135,6 +135,10 @@ Run the generated standalone proof:
 FLOW2SKILL_LIVE=1 pytest -q ./compiled-flow/test_documentation_search.py
 ```
 
+Live CLI replay and exported tests check all protected runtime variables before opening
+the browser. Missing variables are reported together; an explicitly empty value is allowed.
+Dry-run inspection does not require values.
+
 Use `FLOW2SKILL_HEADED=1` to watch. Any workflow containing review or approval actions also requires `FLOW2SKILL_ALLOW_SIDE_EFFECTS=1`. Set it only after reviewing the exact generated plan. Use `FLOW2SKILL_CHANNEL=chrome` to replay with an installed Chrome channel instead of Playwright's managed Chromium.
 
 ## Supported capture surface

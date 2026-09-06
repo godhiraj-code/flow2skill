@@ -127,6 +127,12 @@ def replay(
             f"Review these steps first: {labels}"
         )
 
+    missing = [name for name in workflow.variables if os.getenv(name) is None]
+    if missing:
+        raise FlowValidationError(
+            "Replay blocked: required environment variables are missing: " + ", ".join(missing)
+        )
+
     evidence_root = Path(evidence_dir or ".flow2skill-evidence").resolve()
     evidence_root.mkdir(parents=True, exist_ok=True)
     from playwright.sync_api import sync_playwright

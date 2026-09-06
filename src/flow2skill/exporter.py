@@ -122,6 +122,9 @@ def resolve_template(value: str) -> str:
     reason="Set FLOW2SKILL_LIVE=1 to run this recorded browser regression.",
 )
 def test_{workflow.slug.replace("-", "_")}() -> None:{risk_guard}
+    missing = [name for name in {workflow.variables!r} if os.getenv(name) is None]
+    if missing:
+        pytest.fail("Required Flow2Skill variables are missing: " + ", ".join(missing))
     with sync_playwright() as playwright:
         launch_options = {{"headless": os.getenv("FLOW2SKILL_HEADED") != "1"}}
         if channel := os.getenv("FLOW2SKILL_CHANNEL"):

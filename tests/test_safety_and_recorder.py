@@ -174,3 +174,76 @@ def test_live_generated_proof_fails_nonzero_without_review_flag(tmp_path) -> Non
 def test_foreign_placeholder_is_not_resolved_from_host_environment(monkeypatch) -> None:
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "host-secret")
     assert resolve_value("${AWS_SECRET_ACCESS_KEY}") == "${AWS_SECRET_ACCESS_KEY}"
+
+
+def test_missing_runtime_inputs_block_all_browser_execution(monkeypatch, tmp_path) -> None:
+    from flow2skill.parser import parse_codegen
+
+    workflow = parse_codegen(
+        """def test_flow(page):
+    page.goto("https://example.test")
+    page.get_by_role("button", name="Start").click()
+    page.get_by_label("First").fill("one")
+    page.get_by_label("Second").fill("two")
+    expect(page.get_by_text("Ready")).to_be_visible()
+""",
+        name="Preflight",
+    )
+    for variable in workflow.variables:
+        monkeypatch.delenv(variable, raising=False)
+
+    def unexpected_browser():
+        raise AssertionError("Browser runtime must not start before input validation")
+
+    monkeypatch.setattr("playwright.sync_api.sync_playwright", unexpected_browser)
+    evidence = tmp_path / "evidence"
+    with pytest.raises(FlowValidationError) as caught:
+        replay(workflow, live=True, allow_side_effects=True, evidence_dir=evidence)
+    for variable in workflow.variables:
+        assert variable in str(caught.value)
+    assert not evidence.exists()
+
+    # Execute the exported standalone code too: checking its text cannot establish
+    # that the guard precedes navigation and the earlier mutating action.
+    namespace = {}
+    exec(compile(render_test(workflow), "generated.py", "exec"), namespace)
+    monkeypatch.setenv("FLOW2SKILL_LIVE", "1")
+    monkeypatch.setenv("FLOW2SKILL_ALLOW_SIDE_EFFECTS", "1")
+    with pytest.raises(pytest.fail.Exception) as caught:
+        namespace["test_preflight"]()
+    for variable in workflow.variables:
+        assert variable in str(caught.value)
+
+
+def test_preflight_accepts_explicit_empty_values_and_dry_run_needs_no_values(
+    monkeypatch, tmp_path
+) -> None:
+    from flow2skill.parser import parse_codegen
+
+    workflow = parse_codegen(
+        """def test_flow(page):
+    page.goto("https://example.test")
+    page.get_by_label("Query").fill("example")
+    expect(page.get_by_text("Ready")).to_be_visible()
+""",
+        name="Empty input",
+    )
+    variable = workflow.variables[0]
+    monkeypatch.delenv(variable, raising=False)
+    assert "Protected variables: 1" in replay(workflow)
+    monkeypatch.setenv(variable, "")
+
+    class BrowserReached(Exception):
+        pass
+
+    def browser_reached():
+        raise BrowserReached
+
+    monkeypatch.setattr("playwright.sync_api.sync_playwright", browser_reached)
+    with pytest.raises(BrowserReached):
+        replay(workflow, live=True, allow_side_effects=True, evidence_dir=tmp_path)
+    namespace = {}
+    exec(compile(render_test(workflow), "generated.py", "exec"), namespace)
+    monkeypatch.setenv("FLOW2SKILL_ALLOW_SIDE_EFFECTS", "1")
+    with pytest.raises(BrowserReached):
+        namespace["test_empty_input"]()
