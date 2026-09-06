@@ -170,15 +170,17 @@ Use `FLOW2SKILL_HEADED=1` to watch. Any workflow containing review or approval a
 - direct Playwright call statements only;
 - `page.goto`;
 - role, label, placeholder, text, test-id, title, alt-text, and CSS selectors;
-- `.first` and literal `.nth(...)` modifiers;
-- `click`, `fill`, `press`, `select_option`, `check`, `uncheck`, and `hover`;
+- `.first` and nonnegative integer `.nth(...)` modifiers on element locators;
+- locator `click`, `fill`, `press`, `select_option`, `check`, `uncheck`, and `hover`;
 - `expect(...).to_be_visible()`;
 - exact `to_have_text()` and substring `to_contain_text()` assertions;
 - `expect(page).to_have_url()`;
 - `expect(...).to_have_value()`.
 
 Recorder, CLI replay, and exported proofs block service workers consistently. Arbitrary
-context options and user fixture code are not executed.
+context options and user fixture code are not executed. Navigation and URL assertions
+require `page`; element actions and assertions require locators. Test-id and CSS
+selectors do not accept `exact`. Invalid targets and options stop compilation.
 
 Unsupported calls, dynamic expressions, assignments, loops, branches, context managers, nested functions, and multiple tests are rejected. They are never flattened or silently omitted.
 

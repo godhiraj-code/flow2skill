@@ -190,3 +190,31 @@ def test_real_codegen_capture_compiles_and_replays(tmp_path):
         timeout=45,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_page_and_element_targets_match_in_both_execution_paths(tmp_path):
+    from flow2skill.exporter import write_bundle
+    from flow2skill.parser import parse_codegen
+    from flow2skill.replay import replay
+
+    fixture = tmp_path / "targets.html"
+    fixture.write_text('<!doctype html><h1 data-testid="result">Ready</h1>', encoding="utf-8")
+    workflow = parse_codegen(
+        f"""def test_targets(page):
+    page.goto({fixture.as_uri()!r})
+    expect(page.get_by_test_id("result")).to_be_visible()
+    expect(page).to_have_url({fixture.as_uri()!r})
+""",
+        name="Receiver fidelity",
+    )
+    assert replay(workflow, live=True, evidence_dir=tmp_path / "evidence").startswith("PASS")
+    paths = write_bundle(workflow, tmp_path / "bundle")
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", str(paths["test"])],
+        env={**os.environ, "FLOW2SKILL_LIVE": "1", "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"},
+        capture_output=True,
+        text=True,
+        timeout=45,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "1 passed" in result.stdout

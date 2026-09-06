@@ -113,6 +113,22 @@ class Selector:
         return " ".join(part for part in (self.engine, self.value, self.role, self.name) if part)
 
 
+def validate_action_target(kind: str, selector: Selector) -> None:
+    """Require the same receiver semantics in capture, replay, and exported code."""
+    if selector.engine == "page":
+        if selector.modifiers or any(
+            field is not None
+            for field in (selector.value, selector.role, selector.name, selector.exact)
+        ):
+            raise FlowValidationError("Page selectors cannot carry locator fields or modifiers")
+        if kind not in {"goto", "assert_url"}:
+            raise FlowValidationError(f"{kind} requires an element locator, not page")
+    elif kind in {"goto", "assert_url"}:
+        raise FlowValidationError(f"{kind} requires page as its target")
+    if selector.engine in {"css", "test_id"} and selector.exact is not None:
+        raise FlowValidationError(f"{selector.engine} selectors do not accept exact")
+
+
 @dataclass(frozen=True)
 class Action:
     kind: str
@@ -225,6 +241,7 @@ class Workflow:
             for modifier in action.selector.modifiers:
                 if modifier != "first" and not re.fullmatch(r"nth:[0-9]+", modifier):
                     raise FlowValidationError(f"Unsupported selector modifier: {modifier}")
+            validate_action_target(action.kind, action.selector)
             expected_risk = classify_risk(action.kind, action.selector, action.value)
             if action.risk != expected_risk:
                 raise FlowValidationError(

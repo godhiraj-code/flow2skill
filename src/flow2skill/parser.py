@@ -14,6 +14,7 @@ from .model import (
     classify_risk,
     redact_url,
     sanitize_fill_value,
+    validate_action_target,
 )
 
 _MISSING = object()
@@ -95,7 +96,7 @@ def _selector(node: ast.AST) -> Selector | None:
             return None
         base = _selector(node.func.value)
         index = _literal(node.args[0], _MISSING) if node.args else _MISSING
-        if base and isinstance(index, int) and index >= 0:
+        if base and type(index) is int and index >= 0:
             return Selector(**{**base.__dict__, "modifiers": (*base.modifiers, f"nth:{index}")})
         return None
 
@@ -103,7 +104,9 @@ def _selector(node: ast.AST) -> Selector | None:
     if not (engine and isinstance(node.func.value, ast.Name) and node.func.value.id == "page"):
         return None
     allowed_keywords = (
-        {"name", "exact"} if engine == "role" else ({"exact"} if engine != "css" else set())
+        {"name", "exact"}
+        if engine == "role"
+        else ({"exact"} if engine not in {"css", "test_id"} else set())
     )
     if not _valid_call_shape(node, positional=1, keywords=allowed_keywords):
         return None
@@ -257,6 +260,12 @@ def parse_codegen(
             modifiers=selector.modifiers,
         )
 
+    def check_target(kind: str, selector: Selector, method: str, line: int | None) -> None:
+        try:
+            validate_action_target(kind, selector)
+        except FlowValidationError as exc:
+            fail(method, line, str(exc))
+
     def add_placeholders(value: Any) -> None:
         if isinstance(value, str):
             for variable in PLACEHOLDER_SCAN_RE.findall(value):
@@ -292,8 +301,9 @@ def parse_codegen(
             selector = _selector(expect_call.args[0])
             if not selector:
                 fail(method, line, "assertion target is dynamic or not portable")
-            selector = protect_selector(selector, line)
             kind = ASSERT_METHODS[method]
+            check_target(kind, selector, method, line)
+            selector = protect_selector(selector, line)
             expected = _call_arg(call, default=_MISSING)
             if kind == "assert_visible":
                 expected = True
@@ -334,6 +344,7 @@ def parse_codegen(
         selector = _selector(call.func.value)
         if selector is None:
             fail(method, line, "action target is dynamic or not portable")
+        check_target(method, selector, method, line)
         selector = protect_selector(selector, line)
 
         if method == "goto":
