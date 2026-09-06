@@ -17,3 +17,4 @@ test-results/
 docs/*.webm
 docs/flow2skill-demo.mp4
 docs/*.wav
+examples/trial-output/

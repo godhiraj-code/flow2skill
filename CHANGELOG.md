@@ -4,7 +4,11 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-06
+
 ### Added
+
+- A runnable local regression trial demonstrates pass, changed-page failure, and restored pass using the same exported test. Source archives include the trial and JSON compatibility fixtures; CI runs tests from the archive.
 
 - Scoped locator chains preserve each parent, `.first` and `.nth(...)` modifier through replay and export. Parent selectors participate in protected-input handling and approval classification. Schema 1.1 represents scope; schema 1.0 manifests retain their original fingerprints.
 
