@@ -165,7 +165,7 @@ def test_bundle_contains_no_captured_secret_and_generated_python_parses(tmp_path
         assert secret not in combined
     ast.parse(paths["test"].read_text(encoding="utf-8"))
     assert "fingerprint:" in paths["skill"].read_text(encoding="utf-8")
-    assert json.loads(paths["flow_json"].read_text(encoding="utf-8"))["schema_version"] == "1.0"
+    assert json.loads(paths["flow_json"].read_text(encoding="utf-8"))["schema_version"] == "1.1"
 
 
 def test_manifest_fingerprint_rejects_tampering() -> None:
@@ -335,14 +335,17 @@ def test_overlapping_protected_inputs_do_not_leak_secret_suffixes() -> None:
     assert workflow.actions[-1].selector.value == "Result: ${F2S_LABEL_API_TOKEN_2}"
 
 
-def test_nested_locator_scope_fails_closed_instead_of_de_scoping() -> None:
+def test_nested_locator_scope_is_preserved_instead_of_de_scoping() -> None:
     source = """def test_nested(page):
     page.goto("https://example.test")
     page.locator("#safe-dialog").get_by_role("button", name="Save").click()
     expect(page.get_by_text("Saved")).to_be_visible()
 """
-    with pytest.raises(FlowValidationError, match="dynamic or not portable"):
-        parse_codegen(source, name="Nested locator")
+    workflow = parse_codegen(source, name="Nested locator")
+    assert workflow.actions[1].selector.parent == Selector("css", value="#safe-dialog")
+    assert "page.locator('#safe-dialog').get_by_role('button', name='Save').click()" in render_test(
+        workflow
+    )
 
 
 def test_jwt_query_credentials_are_redacted() -> None:

@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
+MAX_SELECTOR_DEPTH = 32
 PLACEHOLDER_RE = re.compile(r"^\$\{(F2S_[A-Z0-9_]+)\}$")
 PLACEHOLDER_SCAN_RE = re.compile(r"\$\{(F2S_[A-Z0-9_]+)\}")
 ANY_PLACEHOLDER_SCAN_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -100,25 +101,52 @@ class Selector:
     name: str | None = None
     exact: bool | None = None
     modifiers: tuple[str, ...] = ()
+    parent: Selector | None = None
+
+    def chain(self) -> tuple[Selector, ...]:
+        nodes = []
+        node: Selector | None = self
+        while node is not None:
+            if not isinstance(node, Selector) or len(nodes) >= MAX_SELECTOR_DEPTH:
+                raise FlowValidationError("Invalid selector parent or scope depth exceeds 32")
+            nodes.append(node)
+            node = node.parent
+        return tuple(reversed(nodes))
 
     def label(self) -> str:
-        if self.engine == "page":
-            return "page"
-        if self.engine == "role":
-            suffix = f" named {self.name!r}" if self.name else ""
-            return f"{self.role or 'element'}{suffix}"
-        return f"{self.engine} {self.value!r}"
+        labels = []
+        for node in self.chain():
+            if node.engine == "page":
+                label = "page"
+            elif node.engine == "role":
+                suffix = f" named {node.name!r}" if node.name else ""
+                label = f"{node.role or 'element'}{suffix}"
+            else:
+                label = f"{node.engine} {node.value!r}"
+            if node.modifiers:
+                label += f" [{', '.join(node.modifiers)}]"
+            labels.append(label)
+        return " within ".join(reversed(labels))
 
     def searchable_text(self) -> str:
-        return " ".join(part for part in (self.engine, self.value, self.role, self.name) if part)
+        return " ".join(
+            part
+            for node in self.chain()
+            for part in (node.engine, node.value, node.role, node.name)
+            if part
+        )
 
 
 def validate_action_target(kind: str, selector: Selector) -> None:
     """Require the same receiver semantics in capture, replay, and exported code."""
     if selector.engine == "page":
-        if selector.modifiers or any(
-            field is not None
-            for field in (selector.value, selector.role, selector.name, selector.exact)
+        if (
+            selector.parent is not None
+            or selector.modifiers
+            or any(
+                field is not None
+                for field in (selector.value, selector.role, selector.name, selector.exact)
+            )
         ):
             raise FlowValidationError("Page selectors cannot carry locator fields or modifiers")
         if kind not in {"goto", "assert_url"}:
@@ -169,7 +197,7 @@ class Workflow:
         ):
             if not isinstance(value, str):
                 raise FlowValidationError(f"Workflow {field_name} must be a string")
-        if self.schema_version != SCHEMA_VERSION:
+        if self.schema_version not in {"1.0", SCHEMA_VERSION}:
             raise FlowValidationError(f"Unsupported schema version: {self.schema_version}")
         if self.source != "playwright-codegen":
             raise FlowValidationError("Workflow source must be `playwright-codegen`")
@@ -221,27 +249,32 @@ class Workflow:
                 "approval",
             }:
                 raise FlowValidationError(f"Invalid risk classification: {action.risk}")
-            if not isinstance(action.selector.engine, str):
-                raise FlowValidationError("Selector engine must be a string")
-            if action.selector.engine not in selector_engines:
-                raise FlowValidationError(f"Unsupported selector engine: {action.selector.engine}")
-            for field_name, value in (
-                ("value", action.selector.value),
-                ("role", action.selector.role),
-                ("name", action.selector.name),
-            ):
-                if value is not None and not isinstance(value, str):
-                    raise FlowValidationError(f"Selector {field_name} must be a string or null")
-            if action.selector.exact is not None and not isinstance(action.selector.exact, bool):
-                raise FlowValidationError("Selector exact must be a boolean or null")
-            if not isinstance(action.selector.modifiers, tuple) or not all(
-                isinstance(item, str) for item in action.selector.modifiers
-            ):
-                raise FlowValidationError("Selector modifiers must be a tuple of strings")
-            for modifier in action.selector.modifiers:
-                if modifier != "first" and not re.fullmatch(r"nth:[0-9]+", modifier):
-                    raise FlowValidationError(f"Unsupported selector modifier: {modifier}")
-            validate_action_target(action.kind, action.selector)
+            if self.schema_version == "1.0" and action.selector.parent is not None:
+                raise FlowValidationError("Scoped locators require schema 1.1")
+            for selector in action.selector.chain():
+                if not isinstance(selector.engine, str):
+                    raise FlowValidationError("Selector engine must be a string")
+                if selector.engine not in selector_engines:
+                    raise FlowValidationError(f"Unsupported selector engine: {selector.engine}")
+                for field_name, value in (
+                    ("value", selector.value),
+                    ("role", selector.role),
+                    ("name", selector.name),
+                ):
+                    if value is not None and not isinstance(value, str):
+                        raise FlowValidationError(f"Selector {field_name} must be a string or null")
+                if selector.exact is not None and not isinstance(selector.exact, bool):
+                    raise FlowValidationError("Selector exact must be a boolean or null")
+                if not isinstance(selector.modifiers, tuple) or not all(
+                    isinstance(item, str) for item in selector.modifiers
+                ):
+                    raise FlowValidationError("Selector modifiers must be a tuple of strings")
+                for modifier in selector.modifiers:
+                    if modifier != "first" and not re.fullmatch(r"nth:[0-9]+", modifier):
+                        raise FlowValidationError(f"Unsupported selector modifier: {modifier}")
+                validate_action_target(
+                    action.kind if selector is action.selector else "hover", selector
+                )
             expected_risk = classify_risk(action.kind, action.selector, action.value)
             if action.risk != expected_risk:
                 raise FlowValidationError(
@@ -260,8 +293,11 @@ class Workflow:
             for value in (
                 action.value,
                 action.expected,
-                action.selector.value,
-                action.selector.name,
+                *(
+                    value
+                    for selector in action.selector.chain()
+                    for value in (selector.value, selector.role, selector.name)
+                ),
             ):
                 if isinstance(value, str):
                     foreign = [
@@ -294,7 +330,7 @@ class Workflow:
 
     def to_dict(self) -> dict[str, Any]:
         self.validate()
-        payload = asdict(self)
+        payload = self._payload()
         payload["slug"] = self.slug
         payload["fingerprint"] = self.fingerprint(include_fingerprint=False)
         return payload
@@ -338,7 +374,24 @@ class Workflow:
                 raise FlowValidationError(f"Workflow {field_name} must be a list")
         actions = []
         action_fields = {"kind", "selector", "value", "expected", "risk", "source_line", "note"}
-        selector_fields = {"engine", "value", "role", "name", "exact", "modifiers"}
+        selector_fields = {"engine", "value", "role", "name", "exact", "modifiers", "parent"}
+
+        def read_selector(raw: Any, depth: int = 0) -> Selector:
+            if not isinstance(raw, dict):
+                raise FlowValidationError("Action selector must be an object")
+            if depth >= MAX_SELECTOR_DEPTH:
+                raise FlowValidationError("Selector scope depth exceeds 32")
+            extras = set(raw) - selector_fields
+            if extras:
+                raise FlowValidationError(f"Unknown selector fields: {sorted(extras)}")
+            if payload.get("schema_version", "1.0") == "1.0" and "parent" in raw:
+                raise FlowValidationError("Selector parent fields require schema 1.1")
+            fields = dict(raw)
+            fields["modifiers"] = tuple(fields.get("modifiers") or ())
+            if fields.get("parent") is not None:
+                fields["parent"] = read_selector(fields["parent"], depth + 1)
+            return Selector(**fields)
+
         raw_actions = payload.get("actions", [])
         if not isinstance(raw_actions, list):
             raise FlowValidationError("Workflow actions must be a list")
@@ -350,14 +403,7 @@ class Workflow:
                 if action_extras:
                     raise FlowValidationError(f"Unknown action fields: {sorted(action_extras)}")
                 selector_raw = raw.get("selector") or {"engine": "page"}
-                if not isinstance(selector_raw, dict):
-                    raise FlowValidationError("Action selector must be an object")
-                selector_extras = set(selector_raw) - selector_fields
-                if selector_extras:
-                    raise FlowValidationError(f"Unknown selector fields: {sorted(selector_extras)}")
-                selector_raw = dict(selector_raw)
-                selector_raw["modifiers"] = tuple(selector_raw.get("modifiers") or ())
-                actions.append(Action(**{**raw, "selector": Selector(**selector_raw)}))
+                actions.append(Action(**{**raw, "selector": read_selector(selector_raw)}))
         except TypeError as exc:
             raise FlowValidationError(f"Malformed workflow action: {exc}") from exc
         workflow = cls(
@@ -369,7 +415,7 @@ class Workflow:
             variables=list(payload.get("variables") or []),
             warnings=list(payload.get("warnings") or []),
             created_at=payload.get("created_at") or utc_now(),
-            schema_version=payload.get("schema_version", SCHEMA_VERSION),
+            schema_version=payload.get("schema_version", "1.0"),
             source=payload.get("source", "playwright-codegen"),
         )
         workflow.validate()
@@ -384,8 +430,15 @@ class Workflow:
     def read(cls, path: str | Path) -> Workflow:
         return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
 
-    def fingerprint(self, include_fingerprint: bool = False) -> str:
+    def _payload(self) -> dict[str, Any]:
         payload = asdict(self)
+        if self.schema_version == "1.0":
+            for action in payload["actions"]:
+                action["selector"].pop("parent", None)
+        return payload
+
+    def fingerprint(self, include_fingerprint: bool = False) -> str:
+        payload = self._payload()
         if include_fingerprint:
             payload["fingerprint"] = ""
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)

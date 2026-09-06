@@ -280,3 +280,57 @@ def test_keyboard_capture_error_recovery_and_preview(studio):
     dismiss.press("Enter")
     expect(page.locator("#error-feedback")).not_to_be_visible()
     expect(compile_tab).to_be_focused()
+
+
+def test_scoped_recording_preserves_repeated_dialogs_and_buttons(tmp_path, monkeypatch):
+    from flow2skill.exporter import write_bundle
+    from flow2skill.model import Workflow
+    from flow2skill.parser import parse_codegen
+    from flow2skill.replay import replay
+
+    fixture = tmp_path / "scoped.html"
+    fixture.write_text(
+        """<!doctype html><label>Search<input></label>
+<section role="dialog" aria-label="Profile">
+  <div class="row"><button onclick="this.closest('section').querySelector('output').textContent='wrong row'">Save</button></div>
+  <div class="row"><button onclick="this.closest('section').querySelector('output').textContent='chosen row'">Save</button></div>
+  <output data-testid="status">Waiting</output>
+</section>
+<section role="dialog" aria-label="Profile">
+  <div class="row"><button>Save</button></div><div class="row"><button>Save</button></div>
+  <output data-testid="status">Wrong dialog</output>
+</section>""",
+        encoding="utf-8",
+    )
+    workflow = parse_codegen(
+        f"""def test_scoped(page):
+    page.goto({fixture.as_uri()!r})
+    page.get_by_label("Search").fill("Profile")
+    page.get_by_role("dialog", name="Profile", exact=True).first.locator(".row").nth(1).get_by_role("button", name="Save", exact=True).click()
+    expect(page.get_by_role("dialog", name="Profile", exact=True).first.get_by_test_id("status")).to_have_text("chosen row")
+""",
+        name="Scoped browser proof",
+    )
+    assert len(workflow.variables) == 2
+    monkeypatch.setenv(workflow.actions[1].value[2:-1], "Profile")
+    monkeypatch.setenv(workflow.actions[-1].expected[2:-1], "chosen row")
+    # Load the manifest before replay so this also exercises parent decoding.
+    workflow = Workflow.from_dict(workflow.to_dict())
+    assert replay(
+        workflow, live=True, allow_side_effects=True, evidence_dir=tmp_path / "evidence"
+    ).startswith("PASS")
+    paths = write_bundle(workflow, tmp_path / "bundle")
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", str(paths["test"])],
+        env={
+            **os.environ,
+            "FLOW2SKILL_LIVE": "1",
+            "FLOW2SKILL_ALLOW_SIDE_EFFECTS": "1",
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        },
+        capture_output=True,
+        text=True,
+        timeout=45,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "1 passed" in result.stdout

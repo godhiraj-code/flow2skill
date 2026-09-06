@@ -29,7 +29,7 @@ Browser agents are useful when the path is unknown. They are expensive and incon
 - **Parse, never execute:** recordings are inspected through Python's AST and are never imported or run.
 - **Protected by default:** typed values and text/value assertions become environment variables.
 - **Echo-aware:** a protected input repeated in later selector or result text is replaced with the same runtime variable.
-- **Fail closed:** dynamic values, nested locator scopes, control flow, multiple tests, missing assertions, unknown selector modifiers, and unsupported calls stop compilation.
+- **Fail closed:** dynamic values, unsupported locator operations, control flow, multiple tests, missing assertions, unknown selector modifiers, and unsupported calls stop compilation.
 - **Review before mutation:** all clicks, key presses, fills, selections, and check operations are review-gated. Publish, send, buy, submit, delete, and similar actions are approval-gated.
 - **Proof required:** a workflow without an executable assertion is rejected.
 - **Portable:** the generated pytest does not depend on Flow2Skill at runtime.
@@ -169,7 +169,7 @@ Use `FLOW2SKILL_HEADED=1` to watch. Any workflow containing review or approval a
 - the exact session fixture emitted by `--block-service-workers`; other context fixtures are rejected;
 - direct Playwright call statements only;
 - `page.goto`;
-- role, label, placeholder, text, test-id, title, alt-text, and CSS selectors;
+- role, label, placeholder, text, test-id, title, alt-text, and CSS selectors, including direct chains scoped inside another locator;
 - `.first` and nonnegative integer `.nth(...)` modifiers on element locators;
 - locator `click`, `fill`, `press`, `select_option`, `check`, `uncheck`, and `hover`;
 - `expect(...).to_be_visible()`;
@@ -181,6 +181,19 @@ Recorder, CLI replay, and exported proofs block service workers consistently. Ar
 context options and user fixture code are not executed. Navigation and URL assertions
 require `page`; element actions and assertions require locators. Test-id and CSS
 selectors do not accept `exact`. Invalid targets and options stop compilation.
+
+For example, this keeps both the dialog scope and the selected row:
+
+```python
+page.get_by_role("dialog", name="Profile").first.locator(".row").nth(1).get_by_role("button", name="Save").click()
+```
+
+Scope is retained in the manifest, skill instructions, replay, and standalone test.
+Protected values and approval classification include parent selectors. New manifests
+use schema 1.1; schema 1.0 manifests retain their original fingerprints when loaded
+and exported. Older Flow2Skill versions cannot read schema 1.1 manifests, but exported
+Python tests remain standalone. Locator filters, frame locators, and dynamic scopes
+are still unsupported.
 
 Unsupported calls, dynamic expressions, assignments, loops, branches, context managers, nested functions, and multiple tests are rejected. They are never flattened or silently omitted.
 

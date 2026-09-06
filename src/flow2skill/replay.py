@@ -38,6 +38,8 @@ def resolve_value(value: Any) -> Any:
 
 
 def locate(page: Any, selector: Selector) -> Any:
+    if selector.parent is not None:
+        page = locate(page, selector.parent)
     if selector.engine == "page":
         target = page
     elif selector.engine == "role":

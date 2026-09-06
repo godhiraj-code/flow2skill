@@ -11,6 +11,7 @@ from .storage import bundle_write_lock, replace_bundle
 
 
 def selector_expression(selector: Selector) -> str:
+    receiver = selector_expression(selector.parent) if selector.parent is not None else "page"
     if selector.engine == "page":
         expression = "page"
     elif selector.engine == "role":
@@ -19,7 +20,7 @@ def selector_expression(selector: Selector) -> str:
             args.append(f"name={python_value(selector.name)}")
         if selector.exact is not None:
             args.append(f"exact={selector.exact!r}")
-        expression = f"page.get_by_role({', '.join(args)})"
+        expression = f"{receiver}.get_by_role({', '.join(args)})"
     else:
         method = {
             "label": "get_by_label",
@@ -35,7 +36,7 @@ def selector_expression(selector: Selector) -> str:
         args = [python_value(selector.value or "")]
         if selector.exact is not None and method != "locator":
             args.append(f"exact={selector.exact!r}")
-        expression = f"page.{method}({', '.join(args)})"
+        expression = f"{receiver}.{method}({', '.join(args)})"
     for modifier in selector.modifiers:
         if modifier == "first":
             expression += ".first"

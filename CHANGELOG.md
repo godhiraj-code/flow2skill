@@ -4,6 +4,10 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- Scoped locator chains preserve each parent, `.first` and `.nth(...)` modifier through replay and export. Parent selectors participate in protected-input handling and approval classification. Schema 1.1 represents scope; schema 1.0 manifests retain their original fingerprints.
+
 ### Fixed
 
 - Bundle exports stage all artifacts before replacement, restore previous files on write failure, and serialize writers with a workspace lock. Incomplete rollback preserves backups and the lock for documented manual recovery.
