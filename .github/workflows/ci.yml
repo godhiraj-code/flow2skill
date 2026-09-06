@@ -52,7 +52,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: flow2skill-browser-tests
-          path: tests/test_studio_browser.py
+          path: |
+            tests/test_studio_browser.py
+            tests/test_bundle_shells.py
           if-no-files-found: error
 
   browser-proof:
@@ -92,4 +94,37 @@ jobs:
           FLOW2SKILL_BROWSER_TESTS: "1"
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
           PYTHONPATH: ""
-        run: .proof-venv/bin/python -m pytest -q .browser-tests/test_studio_browser.py
+        run: .proof-venv/bin/python -m pytest -q .browser-tests/test_studio_browser.py .browser-tests/test_bundle_shells.py
+
+  windows-bundle-proof:
+    needs: quality
+    runs-on: windows-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@v4
+        with:
+          name: flow2skill-distributions
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: flow2skill-browser-tests
+          path: .browser-tests
+      - name: Install built wheel with test extra
+        shell: pwsh
+        run: |
+          python -m venv .proof-venv
+          $wheel = (Get-ChildItem dist/*.whl).FullName
+          .proof-venv/Scripts/python.exe -m pip install "${wheel}[test]"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .proof-venv/Scripts/python.exe -m pip check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .proof-venv/Scripts/python.exe -m playwright install chromium
+          exit $LASTEXITCODE
+      - name: Execute PowerShell and Command Prompt README instructions
+        env:
+          FLOW2SKILL_BROWSER_TESTS: "1"
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+          PYTHONPATH: ""
+        run: .proof-venv/Scripts/python.exe -m pytest -q .browser-tests/test_bundle_shells.py

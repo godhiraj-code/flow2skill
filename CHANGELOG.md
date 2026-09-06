@@ -6,6 +6,8 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ### Fixed
 
+- CI executes exported README commands in native Windows PowerShell and Command Prompt, and bash on Linux, against the built wheel. Tests require a real passing browser proof and exercise bundle paths containing spaces.
+
 - Exported README and skill share complete standalone verification instructions, pinned Playwright setup, browser installation, runtime inputs, action gates, and bash/PowerShell/Command Prompt examples. Generated documentation no longer claims compilation proves a successful execution.
 - Studio browser verification executes the generated README commands to detect documentation drift.
 
