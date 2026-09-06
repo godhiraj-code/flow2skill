@@ -9,6 +9,7 @@ import pytest
 from flow2skill.exporter import render_skill, render_test, write_bundle
 from flow2skill.model import Action, FlowValidationError, Selector, Workflow
 from flow2skill.parser import parse_codegen
+from flow2skill.replay import resolve_value
 
 SOURCE = """from playwright.sync_api import Page, expect
 
@@ -333,6 +334,38 @@ def test_overlapping_protected_inputs_do_not_leak_secret_suffixes() -> None:
     output = json.dumps(workflow.to_dict()) + render_skill(workflow) + render_test(workflow)
     assert "PRODUCTION-SECRET-7Q9X" not in output
     assert workflow.actions[-1].selector.value == "Result: ${F2S_LABEL_API_TOKEN_2}"
+
+
+@pytest.mark.parametrize("first_input", ["LABEL", "F2S", "SECOND", "a.*[b]"])
+def test_protection_does_not_rewrite_inserted_placeholders(first_input, monkeypatch) -> None:
+    source = f"""def test_collision(page):
+    page.goto("https://example.test")
+    page.get_by_label("First").fill({first_input!r})
+    page.get_by_label("Second").fill("a-long-secret")
+    expect(page.get_by_text("Result: a-long-secret; again a-long-secret; {first_input}")).to_be_visible()
+"""
+    workflow = parse_codegen(source, name="Placeholder collision")
+    restored = Workflow.from_dict(workflow.to_dict())
+    selector = restored.actions[-1].selector.value
+    monkeypatch.setenv("F2S_LABEL_FIRST_1", "unrelated runtime input")
+    monkeypatch.setenv("F2S_LABEL_SECOND_2", "runtime result")
+    assert resolve_value(selector) == (
+        "Result: runtime result; again runtime result; unrelated runtime input"
+    )
+    assert "a-long-secret" not in json.dumps(restored.to_dict())
+
+
+@pytest.mark.parametrize("inputs", [("abc", "bcSECRET"), ("bcSECRET", "abc")])
+def test_crossing_protected_values_fail_without_exposing_captured_text(inputs) -> None:
+    source = f"""def test_crossing(page):
+    page.goto("https://example.test")
+    page.get_by_label("First").fill({inputs[0]!r})
+    page.get_by_label("Second").fill({inputs[1]!r})
+    expect(page.get_by_text("abcSECRET")).to_be_visible()
+"""
+    with pytest.raises(FlowValidationError, match="overlap ambiguously") as caught:
+        parse_codegen(source, name="Crossing values")
+    assert "SECRET" not in str(caught.value)
 
 
 def test_nested_locator_scope_is_preserved_instead_of_de_scoping() -> None:

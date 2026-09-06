@@ -282,6 +282,52 @@ def test_keyboard_capture_error_recovery_and_preview(studio):
     expect(compile_tab).to_be_focused()
 
 
+def test_placeholder_collision_replays_in_browser_and_standalone(tmp_path, monkeypatch):
+    from flow2skill.exporter import write_bundle
+    from flow2skill.model import Workflow
+    from flow2skill.parser import parse_codegen
+    from flow2skill.replay import replay
+
+    fixture = tmp_path / "echo.html"
+    fixture.write_text(
+        """<!doctype html><label>First<input></label><label>Second<input id="second"></label>
+<button onclick="document.querySelector('output').textContent='Result: '+document.querySelector('#second').value">Show result</button>
+<output></output>""",
+        encoding="utf-8",
+    )
+    workflow = parse_codegen(
+        f"""def test_echo(page):
+    page.goto({fixture.as_uri()!r})
+    page.get_by_label("First").fill("LABEL")
+    page.get_by_label("Second").fill("a-long-secret")
+    page.get_by_role("button", name="Show result").click()
+    expect(page.get_by_text("Result: a-long-secret", exact=True)).to_be_visible()
+""",
+        name="Protected placeholder browser proof",
+    )
+    monkeypatch.setenv("F2S_LABEL_FIRST_1", "different input")
+    monkeypatch.setenv("F2S_LABEL_SECOND_2", "runtime result")
+    workflow = Workflow.from_dict(workflow.to_dict())
+    assert replay(
+        workflow, live=True, allow_side_effects=True, evidence_dir=tmp_path / "evidence"
+    ).startswith("PASS")
+    paths = write_bundle(workflow, tmp_path / "bundle")
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-o", "addopts=", "-q", str(paths["test"])],
+        env={
+            **os.environ,
+            "FLOW2SKILL_LIVE": "1",
+            "FLOW2SKILL_ALLOW_SIDE_EFFECTS": "1",
+            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+        },
+        capture_output=True,
+        text=True,
+        timeout=45,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "1 passed" in result.stdout
+
+
 def test_scoped_recording_preserves_repeated_dialogs_and_buttons(tmp_path, monkeypatch):
     from flow2skill.exporter import write_bundle
     from flow2skill.model import Workflow
