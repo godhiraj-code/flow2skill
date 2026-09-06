@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .constants import PLAYWRIGHT_VERSION
 from .model import Action, FlowValidationError, Selector, Workflow
 
 
@@ -188,6 +189,63 @@ def describe_action(action: Action) -> str:
     raise ValueError(f"Unsupported action: {action.kind}")
 
 
+def render_verification(workflow: Workflow) -> str:
+    workflow.validate()
+    values = [(name, "<your value>") for name in workflow.variables]
+    values.append(("FLOW2SKILL_LIVE", "1"))
+    if any(action.risk != "safe" for action in workflow.actions):
+        values.append(("FLOW2SKILL_ALLOW_SIDE_EFFECTS", "1"))
+    command = f"python -m pytest -q test_{workflow.slug.replace('-', '_')}.py"
+    bash = "\n".join(f"export {name}='{value}'" for name, value in values)
+    powershell = "\n".join(f"$env:{name} = '{value}'" for name, value in values)
+    cmd = "\n".join(f'set "{name}={value}"' for name, value in values)
+    return f"""Run from this bundle's directory in an isolated Python environment.
+Flow2Skill itself is not required to execute the generated test.
+
+### Install dependencies and browser
+
+```bash
+python -m pip install "playwright=={PLAYWRIGHT_VERSION}" "pytest>=8"
+python -m playwright install chromium
+```
+
+### Review before execution
+
+Read every step and assertion in `SKILL.md` and the generated test. Obtain approval
+for approval-gated actions before enabling side effects. The environment flag below
+acknowledges that review; it does not grant authorization.
+
+Replace each `<your value>` placeholder with its intended runtime input. Do not
+commit real values to the bundle. All required inputs are checked before browser
+startup. With no `FLOW2SKILL_LIVE=1`, pytest skips execution; a skip is not proof.
+
+### macOS / Linux (bash)
+
+```bash
+{bash}
+{command}
+```
+
+### Windows PowerShell
+
+```powershell
+{powershell}
+{command}
+```
+
+### Windows Command Prompt
+
+```cmd
+{cmd}
+{command}
+```
+
+Set `FLOW2SKILL_HEADED=1` to watch execution. A passing result establishes only the
+recorded assertions, not correctness of untested behavior. File URLs and external
+applications must remain accessible from the machine running the proof.
+"""
+
+
 def render_skill(workflow: Workflow) -> str:
     workflow.validate()
 
@@ -255,11 +313,7 @@ The procedure is complete only when all recorded assertions pass. A browser acti
 
 ## Verification
 
-```bash
-FLOW2SKILL_LIVE=1 pytest -q test_{workflow.slug.replace("-", "_")}.py
-```
-
-Set `FLOW2SKILL_HEADED=1` for a visible browser. Set `FLOW2SKILL_ALLOW_SIDE_EFFECTS=1` only after reviewing every marked step and obtaining exact approval for approval-gated actions.
+{render_verification(workflow)}
 
 ## Capture warnings
 
@@ -311,7 +365,8 @@ def render_readme(workflow: Workflow) -> str:
     assertions = sum(action.kind.startswith("assert_") for action in workflow.actions)
     return f"""# {workflow.name}
 
-Generated locally by Flow2Skill from a successful human-demonstrated browser workflow.
+Compiled locally by Flow2Skill from Playwright source. Compilation does not execute
+the workflow or establish that its assertions pass; run the proof below to verify it.
 
 - Steps: {len(workflow.actions)}
 - Assertions: {assertions}
@@ -327,12 +382,7 @@ Generated locally by Flow2Skill from a successful human-demonstrated browser wor
 
 ## Verify
 
-```bash
-python -m pip install playwright pytest
-FLOW2SKILL_LIVE=1 pytest -q test_{workflow.slug.replace("-", "_")}.py
-```
-
-Use `FLOW2SKILL_HEADED=1` to watch the replay. Protected input variables are listed in `SKILL.md` and must be supplied through the environment.
+{render_verification(workflow)}
 """
 
 

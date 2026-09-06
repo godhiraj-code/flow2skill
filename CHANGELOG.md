@@ -6,6 +6,9 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Exported README and skill share complete standalone verification instructions, pinned Playwright setup, browser installation, runtime inputs, action gates, and bash/PowerShell/Command Prompt examples. Generated documentation no longer claims compilation proves a successful execution.
+- Studio browser verification executes the generated README commands to detect documentation drift.
+
 - Release verification requires the GitHub tag, wheel/source metadata, and source runtime version to agree; duplicate or incorrect package artifacts are rejected before publishing.
 - Release builds run the installed-package Studio and real-codegen integration tests.
 

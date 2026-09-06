@@ -13,11 +13,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .constants import PLAYWRIGHT_VERSION as DEFAULT_CODEGEN_VERSION
 from .exporter import write_bundle
 from .model import FlowValidationError, slugify
 from .parser import parse_codegen
 
-DEFAULT_CODEGEN_VERSION = "1.61.0"
 STALE_CAPTURE_SECONDS = 60 * 60
 SAFE_OPTION_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 

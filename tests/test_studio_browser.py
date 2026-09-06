@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import os
 import queue
+import re
 import subprocess
 import sys
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -78,13 +80,20 @@ def test_studio_demo_exports_preview_and_executable_proof(studio):
     proof = next(root.glob("*/test_*.py"))
     for artifact in proof.parent.iterdir():
         assert "synthetic-demo-value-7Q9X" not in artifact.read_text()
+    readme = (proof.parent / "README.md").read_text()
+    shell = "cmd" if os.name == "nt" else "bash"
+    instructions = re.findall(rf"```{shell}\n(.*?)```", readme, re.DOTALL)[-1]
+    instructions = instructions.replace("<your value>", "runtime-demo-token")
+    invocation = (
+        ["cmd", "/d", "/c", instructions] if os.name == "nt" else ["bash", "-c", instructions]
+    )
+    # Run the exported instructions, not a parallel hand-written command.
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", str(proof)],
+        invocation,
+        cwd=proof.parent,
         env={
             **os.environ,
-            "FLOW2SKILL_LIVE": "1",
-            "FLOW2SKILL_ALLOW_SIDE_EFFECTS": "1",
-            "F2S_LABEL_API_TOKEN_1": "runtime-demo-token",
+            "PATH": str(Path(sys.executable).parent) + os.pathsep + os.environ["PATH"],
             "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         },
         capture_output=True,
