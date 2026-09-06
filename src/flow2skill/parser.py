@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import re
 from pathlib import Path
 from typing import Any
 
@@ -247,17 +246,37 @@ def parse_codegen(
         if not literals:
             return value
 
-        def replace(match: re.Match[str]) -> str:
-            literal = match.group(0)
-            if len(literal) < 3 and value != literal:
-                raise FlowValidationError(
-                    "A protected value is too short to substitute safely inside selector text"
-                )
-            return f"${{{protected_literals[literal]}}}"
+        spans: list[tuple[int, int, str]] = []
+        # Find only in original text, longest literals first. Contained matches
+        # belong to the longer value; crossing matches cannot be parameterized
+        # independently without exposing part of one protected value.
+        for literal in literals:
+            start = value.find(literal)
+            while start != -1:
+                end = start + len(literal)
+                overlaps = [(a, b) for a, b, _ in spans if start < b and end > a]
+                if any(a <= start and end <= b for a, b in overlaps):
+                    pass
+                elif overlaps:
+                    raise FlowValidationError(
+                        "Protected values overlap ambiguously in selector text; "
+                        "use a selector that does not combine overlapping inputs"
+                    )
+                else:
+                    if len(literal) < 3 and value != literal:
+                        raise FlowValidationError(
+                            "A protected value is too short to substitute safely inside selector text"
+                        )
+                    spans.append((start, end, protected_literals[literal]))
+                start = value.find(literal, start + 1)
 
-        # Match original text only: later literals must not rewrite newly inserted
-        # placeholder names. Prefer the longest literal at each matching position.
-        return re.sub("|".join(re.escape(literal) for literal in literals), replace, value)
+        parts: list[str] = []
+        cursor = 0
+        for start, end, variable in sorted(spans):
+            parts.extend((value[cursor:start], f"${{{variable}}}"))
+            cursor = end
+        parts.append(value[cursor:])
+        return "".join(parts)
 
     def protect_selector(selector: Selector, line: int | None) -> Selector:
         fields = {

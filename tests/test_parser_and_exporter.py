@@ -355,6 +355,19 @@ def test_protection_does_not_rewrite_inserted_placeholders(first_input, monkeypa
     assert "a-long-secret" not in json.dumps(restored.to_dict())
 
 
+@pytest.mark.parametrize("inputs", [("abc", "bcSECRET"), ("bcSECRET", "abc")])
+def test_crossing_protected_values_fail_without_exposing_captured_text(inputs) -> None:
+    source = f"""def test_crossing(page):
+    page.goto("https://example.test")
+    page.get_by_label("First").fill({inputs[0]!r})
+    page.get_by_label("Second").fill({inputs[1]!r})
+    expect(page.get_by_text("abcSECRET")).to_be_visible()
+"""
+    with pytest.raises(FlowValidationError, match="overlap ambiguously") as caught:
+        parse_codegen(source, name="Crossing values")
+    assert "SECRET" not in str(caught.value)
+
+
 def test_nested_locator_scope_is_preserved_instead_of_de_scoping() -> None:
     source = """def test_nested(page):
     page.goto("https://example.test")
