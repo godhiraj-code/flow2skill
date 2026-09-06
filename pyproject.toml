@@ -24,6 +24,7 @@ classifiers = [
 dependencies = ["playwright==1.61.0"]
 
 [project.optional-dependencies]
+test = ["pytest>=8"]
 dev = ["build>=1.2", "pytest>=8", "ruff>=0.9", "twine>=6"]
 
 [project.scripts]

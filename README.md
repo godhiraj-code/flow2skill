@@ -43,11 +43,14 @@ Prerequisites:
 - Chromium installed through Playwright, required for default replay.
 
 ```bash
-python -m pip install flow2skill
+python -m pip install "flow2skill[test]"
 python -m playwright install chromium
 flow2skill doctor
 flow2skill studio
 ```
+
+The `test` extra installs pytest for the standalone regression proofs. For compiling,
+Studio, or CLI replay without pytest, install the base `flow2skill` package.
 
 From a source checkout:
 
@@ -79,7 +82,7 @@ Run it against Flow2Skill's packaged local fixture:
 F2S_LABEL_API_TOKEN_1="runtime-demo-token" \
 FLOW2SKILL_LIVE=1 \
 FLOW2SKILL_ALLOW_SIDE_EFFECTS=1 \
-pytest -q ./flow2skill-demo/test_agent_release_gate.py
+python -m pytest -q ./flow2skill-demo/test_agent_release_gate.py
 ```
 
 Windows Command Prompt:
@@ -88,7 +91,7 @@ Windows Command Prompt:
 set F2S_LABEL_API_TOKEN_1=runtime-demo-token
 set FLOW2SKILL_LIVE=1
 set FLOW2SKILL_ALLOW_SIDE_EFFECTS=1
-pytest -q flow2skill-demo\test_agent_release_gate.py
+python -m pytest -q flow2skill-demo\test_agent_release_gate.py
 ```
 
 The side-effect flag is required because the proof fills a synthetic API-token field and clicks a validation button, even though the packaged fixture is local and harmless. The captured synthetic value is absent from the generated bundle.

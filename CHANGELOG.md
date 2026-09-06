@@ -4,6 +4,12 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Fixed
+
+- Added a `test` installation extra so the documented demo includes its pytest dependency.
+- Browser CI now verifies the built wheel in an isolated environment without a source checkout or development dependencies. Release verification uses the same public extra.
+- Development setup installs into the newly created virtual environment.
+
 ## [0.1.0] - 2026-07-30
 
 ### Added

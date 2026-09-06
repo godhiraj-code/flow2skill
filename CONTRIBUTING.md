@@ -6,7 +6,7 @@ Flow2Skill is intentionally narrow: compile one successful Playwright demonstrat
 
 ```bash
 python -m venv .venv
-python -m pip install -e ".[dev]"
+.venv/bin/python -m pip install -e ".[dev]"
 python -m playwright install chromium
 flow2skill doctor
 ```

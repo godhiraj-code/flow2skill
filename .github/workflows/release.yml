@@ -27,7 +27,7 @@ jobs:
         run: |
           python -m venv .release-venv
           .release-venv/bin/python -m pip install --upgrade pip
-          .release-venv/bin/python -m pip install dist/*.whl pytest
+          .release-venv/bin/python -m pip install "$(echo dist/*.whl)[test]"
           .release-venv/bin/python -m playwright install --with-deps chromium
       - name: Verify installed package and real browser proof
         env:
