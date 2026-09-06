@@ -5,10 +5,13 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .constants import PLAYWRIGHT_VERSION
 from .model import Action, FlowValidationError, Selector, Workflow
+from .storage import bundle_write_lock, replace_bundle
 
 
 def selector_expression(selector: Selector) -> str:
+    receiver = selector_expression(selector.parent) if selector.parent is not None else "page"
     if selector.engine == "page":
         expression = "page"
     elif selector.engine == "role":
@@ -17,7 +20,7 @@ def selector_expression(selector: Selector) -> str:
             args.append(f"name={python_value(selector.name)}")
         if selector.exact is not None:
             args.append(f"exact={selector.exact!r}")
-        expression = f"page.get_by_role({', '.join(args)})"
+        expression = f"{receiver}.get_by_role({', '.join(args)})"
     else:
         method = {
             "label": "get_by_label",
@@ -33,7 +36,7 @@ def selector_expression(selector: Selector) -> str:
         args = [python_value(selector.value or "")]
         if selector.exact is not None and method != "locator":
             args.append(f"exact={selector.exact!r}")
-        expression = f"page.{method}({', '.join(args)})"
+        expression = f"{receiver}.{method}({', '.join(args)})"
     for modifier in selector.modifiers:
         if modifier == "first":
             expression += ".first"
@@ -97,9 +100,22 @@ from __future__ import annotations
 
 import os
 import re
+from contextlib import contextmanager, suppress
 
 import pytest
 from playwright.sync_api import expect, sync_playwright
+
+
+@contextmanager
+def managed_resource(resource):
+    try:
+        yield resource
+    except BaseException:
+        with suppress(Exception):
+            resource.close()
+        raise
+    else:
+        resource.close()
 
 
 def require_env(name: str) -> str:
@@ -122,18 +138,19 @@ def resolve_template(value: str) -> str:
     reason="Set FLOW2SKILL_LIVE=1 to run this recorded browser regression.",
 )
 def test_{workflow.slug.replace("-", "_")}() -> None:{risk_guard}
+    missing = [name for name in {workflow.variables!r} if os.getenv(name) is None]
+    if missing:
+        pytest.fail("Required Flow2Skill variables are missing: " + ", ".join(missing))
     with sync_playwright() as playwright:
         launch_options = {{"headless": os.getenv("FLOW2SKILL_HEADED") != "1"}}
         if channel := os.getenv("FLOW2SKILL_CHANNEL"):
             launch_options["channel"] = channel
-        browser = playwright.chromium.launch(**launch_options)
-        context = browser.new_context()
-        page = context.new_page()
-        try:
+        with (
+            managed_resource(playwright.chromium.launch(**launch_options)) as browser,
+            managed_resource(browser.new_context(service_workers="block")) as context,
+        ):
+            page = context.new_page()
 {chr(10).join(body)}
-        finally:
-            context.close()
-            browser.close()
 """
     try:
         ast.parse(generated)
@@ -172,6 +189,63 @@ def describe_action(action: Action) -> str:
     if action.kind == "assert_value":
         return f"verify {target} has value {action.expected!r}"
     raise ValueError(f"Unsupported action: {action.kind}")
+
+
+def render_verification(workflow: Workflow) -> str:
+    workflow.validate()
+    values = [(name, "<your value>") for name in workflow.variables]
+    values.append(("FLOW2SKILL_LIVE", "1"))
+    if any(action.risk != "safe" for action in workflow.actions):
+        values.append(("FLOW2SKILL_ALLOW_SIDE_EFFECTS", "1"))
+    command = f"python -m pytest -q test_{workflow.slug.replace('-', '_')}.py"
+    bash = "\n".join(f"export {name}='{value}'" for name, value in values)
+    powershell = "\n".join(f"$env:{name} = '{value}'" for name, value in values)
+    cmd = "\n".join(f'set "{name}={value}"' for name, value in values)
+    return f"""Run from this bundle's directory in an isolated Python environment.
+Flow2Skill itself is not required to execute the generated test.
+
+### Install dependencies and browser
+
+```bash
+python -m pip install "playwright=={PLAYWRIGHT_VERSION}" "pytest>=8"
+python -m playwright install chromium
+```
+
+### Review before execution
+
+Read every step and assertion in `SKILL.md` and the generated test. Obtain approval
+for approval-gated actions before enabling side effects. The environment flag below
+acknowledges that review; it does not grant authorization.
+
+Replace each `<your value>` placeholder with its intended runtime input. Do not
+commit real values to the bundle. All required inputs are checked before browser
+startup. With no `FLOW2SKILL_LIVE=1`, pytest skips execution; a skip is not proof.
+
+### macOS / Linux (bash)
+
+```bash
+{bash}
+{command}
+```
+
+### Windows PowerShell
+
+```powershell
+{powershell}
+{command}
+```
+
+### Windows Command Prompt
+
+```cmd
+{cmd}
+{command}
+```
+
+Set `FLOW2SKILL_HEADED=1` to watch execution. A passing result establishes only the
+recorded assertions, not correctness of untested behavior. File URLs and external
+applications must remain accessible from the machine running the proof.
+"""
 
 
 def render_skill(workflow: Workflow) -> str:
@@ -241,11 +315,7 @@ The procedure is complete only when all recorded assertions pass. A browser acti
 
 ## Verification
 
-```bash
-FLOW2SKILL_LIVE=1 pytest -q test_{workflow.slug.replace("-", "_")}.py
-```
-
-Set `FLOW2SKILL_HEADED=1` for a visible browser. Set `FLOW2SKILL_ALLOW_SIDE_EFFECTS=1` only after reviewing every marked step and obtaining exact approval for approval-gated actions.
+{render_verification(workflow)}
 
 ## Capture warnings
 
@@ -297,7 +367,8 @@ def render_readme(workflow: Workflow) -> str:
     assertions = sum(action.kind.startswith("assert_") for action in workflow.actions)
     return f"""# {workflow.name}
 
-Generated locally by Flow2Skill from a successful human-demonstrated browser workflow.
+Compiled locally by Flow2Skill from Playwright source. Compilation does not execute
+the workflow or establish that its assertions pass; run the proof below to verify it.
 
 - Steps: {len(workflow.actions)}
 - Assertions: {assertions}
@@ -313,28 +384,13 @@ Generated locally by Flow2Skill from a successful human-demonstrated browser wor
 
 ## Verify
 
-```bash
-python -m pip install playwright pytest
-FLOW2SKILL_LIVE=1 pytest -q test_{workflow.slug.replace("-", "_")}.py
-```
-
-Use `FLOW2SKILL_HEADED=1` to watch the replay. Protected input variables are listed in `SKILL.md` and must be supplied through the environment.
+{render_verification(workflow)}
 """
 
 
 def write_bundle(workflow: Workflow, output_dir: str | Path) -> dict[str, Path]:
     workflow.validate()
     root = Path(output_dir).resolve()
-    root.mkdir(parents=True, exist_ok=True)
-    previous_test: Path | None = None
-    manifest_path = root / "flow.json"
-    if manifest_path.is_file():
-        try:
-            previous_workflow = Workflow.read(manifest_path)
-        except (OSError, ValueError):
-            pass
-        else:
-            previous_test = root / f"test_{previous_workflow.slug.replace('-', '_')}.py"
     payload = workflow.to_dict()
     paths = {
         "flow_json": root / "flow.json",
@@ -343,17 +399,24 @@ def write_bundle(workflow: Workflow, output_dir: str | Path) -> dict[str, Path]:
         "test": root / f"test_{workflow.slug.replace('-', '_')}.py",
         "readme": root / "README.md",
     }
-    if (
-        previous_test is not None
-        and previous_test != paths["test"]
-        and (previous_test.is_file() or previous_test.is_symlink())
-    ):
-        previous_test.unlink()
-    paths["flow_json"].write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
-    paths["flow_yaml"].write_text("\n".join(_yaml_lines(payload)) + "\n", encoding="utf-8")
-    paths["skill"].write_text(render_skill(workflow), encoding="utf-8")
-    paths["test"].write_text(render_test(workflow), encoding="utf-8")
-    paths["readme"].write_text(render_readme(workflow), encoding="utf-8")
+    # Render everything before touching any existing artifact.
+    contents = {
+        paths["flow_yaml"].name: "\n".join(_yaml_lines(payload)) + "\n",
+        paths["skill"].name: render_skill(workflow),
+        paths["test"].name: render_test(workflow),
+        paths["readme"].name: render_readme(workflow),
+        # Publish the new manifest after the artifacts it describes.
+        paths["flow_json"].name: json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+    }
+    with bundle_write_lock(root):
+        previous_test = None
+        manifest_path = paths["flow_json"]
+        if manifest_path.is_file():
+            try:
+                previous_workflow = Workflow.read(manifest_path)
+            except (OSError, ValueError):
+                pass
+            else:
+                previous_test = f"test_{previous_workflow.slug.replace('-', '_')}.py"
+        replace_bundle(root, contents, previous_test)
     return paths

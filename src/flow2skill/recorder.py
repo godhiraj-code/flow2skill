@@ -4,18 +4,20 @@ import os
 import re
 import secrets
 import shutil
+import signal
 import subprocess
 import threading
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .constants import PLAYWRIGHT_VERSION as DEFAULT_CODEGEN_VERSION
 from .exporter import write_bundle
 from .model import FlowValidationError, slugify
 from .parser import parse_codegen
 
-DEFAULT_CODEGEN_VERSION = "1.61.0"
 STALE_CAPTURE_SECONDS = 60 * 60
 SAFE_OPTION_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
@@ -24,12 +26,12 @@ def codegen_command(
     *,
     url: str,
     raw_output: Path,
-    channel: str = "chrome",
+    channel: str | None = None,
     test_id_attribute: str = "data-testid",
 ) -> list[str]:
     if not re.match(r"^(https?|file)://", url, re.IGNORECASE):
         raise FlowValidationError("Recorder URL must use http://, https://, or file://")
-    if not SAFE_OPTION_RE.fullmatch(channel):
+    if channel is not None and not SAFE_OPTION_RE.fullmatch(channel):
         raise FlowValidationError("Browser channel contains unsupported characters")
     if not SAFE_OPTION_RE.fullmatch(test_id_attribute):
         raise FlowValidationError("Test-id attribute contains unsupported characters")
@@ -43,7 +45,7 @@ def codegen_command(
         "codegen",
         "--target=python-pytest",
         f"--output={raw_output}",
-        f"--channel={channel}",
+        *([f"--channel={channel}"] if channel else []),
         f"--test-id-attribute={test_id_attribute}",
         "--block-service-workers",
         url,
@@ -102,12 +104,18 @@ class RecordingJob:
     log_path: Path
     process: subprocess.Popen[Any]
     redact_all_inputs: bool = True
+    owns_process_group: bool = False
     state: str = "recording"
     error: str | None = None
     result: dict[str, Any] | None = None
     _finalized: bool = field(default=False, repr=False)
+    _state_lock: Any = field(default_factory=threading.Lock, repr=False)
 
     def status(self) -> dict[str, Any]:
+        with self._state_lock:
+            return self._status()
+
+    def _status(self) -> dict[str, Any]:
         exit_code = self.process.poll()
         if exit_code is None:
             return {
@@ -160,20 +168,42 @@ class RecordingJob:
             self.log_path.unlink(missing_ok=True)
 
     def cancel(self) -> dict[str, Any]:
-        if self.process.poll() is None:
+        with self._state_lock:
+            return self._cancel()
+
+    def _cancel(self) -> dict[str, Any]:
+        if self._finalized:
+            return {"job_id": self.job_id, "state": self.state}
+        if os.name != "nt" and self.owns_process_group:
+            # The npm wrapper can exit before its recorder/browser children.
+            # Signal only the dedicated group created by RecorderManager.start.
+            with suppress(ProcessLookupError):
+                os.killpg(self.process.pid, signal.SIGTERM)
+            with suppress(subprocess.TimeoutExpired):
+                self.process.wait(timeout=5)
+            # Also stop descendants that ignored TERM, even if the wrapper exited.
+            with suppress(ProcessLookupError):
+                os.killpg(self.process.pid, signal.SIGKILL)
+            self.process.wait(timeout=5)
+        elif self.process.poll() is None:
             if os.name == "nt":
-                subprocess.run(
+                result = subprocess.run(
                     ["taskkill.exe", "/PID", str(self.process.pid), "/T", "/F"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     check=False,
                 )
+                if result.returncode != 0:
+                    raise FlowValidationError(
+                        "Could not stop the recorder process tree; cancellation is unconfirmed"
+                    )
             else:
                 self.process.terminate()
             try:
                 self.process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.process.kill()
+                self.process.wait(timeout=5)
         self._finalized = True
         self.state = "cancelled"
         self.raw_path.unlink(missing_ok=True)
@@ -208,7 +238,7 @@ class RecorderManager:
         success_criteria: str,
         success_text: str | None,
         redact_all_inputs: bool = True,
-        channel: str = "chrome",
+        channel: str | None = None,
     ) -> RecordingJob:
         if not url.lower().startswith(("http://", "https://", "file://")):
             raise FlowValidationError("Recorder URL must use http://, https://, or file://")
@@ -228,6 +258,7 @@ class RecorderManager:
                 stderr=subprocess.STDOUT,
                 text=True,
                 creationflags=creationflags,
+                start_new_session=os.name != "nt",
             )
         except Exception:
             log_handle.close()
@@ -246,6 +277,7 @@ class RecorderManager:
             raw_path=raw_path,
             log_path=log_path,
             process=process,
+            owns_process_group=os.name != "nt",
             redact_all_inputs=redact_all_inputs,
         )
         with self._lock:
@@ -278,7 +310,7 @@ def record_blocking(
     success_criteria: str,
     success_text: str | None = None,
     redact_all_inputs: bool = True,
-    channel: str = "chrome",
+    channel: str | None = None,
 ) -> dict[str, Any]:
     manager = RecorderManager(output_root)
     job = manager.start(

@@ -48,6 +48,8 @@
     .toast{position:fixed;right:24px;bottom:24px;max-width:420px;background:#171a1a;border:1px solid var(--line);border-left:3px solid var(--acid);padding:14px 16px;border-radius:8px;box-shadow:var(--shadow);font-size:12px;line-height:1.5;transform:translateY(120px);opacity:0;transition:.24s;z-index:10}.toast.show{transform:translateY(0);opacity:1}.toast.error{border-left-color:var(--danger)}
     dialog{width:min(900px,92vw);height:min(720px,88vh);border:1px solid var(--line);border-radius:12px;background:#0d0f0f;color:var(--ink);padding:0;box-shadow:var(--shadow)}dialog::backdrop{background:rgba(0,0,0,.72);backdrop-filter:blur(3px)}.modal-head{display:flex;justify-content:space-between;align-items:center;padding:15px 18px;border-bottom:1px solid var(--line)}.modal-head b{font:12px Consolas,monospace;color:var(--acid)}.modal-head button{border:0;background:transparent;color:var(--muted);font-size:20px}.preview{margin:0;padding:20px;height:calc(100% - 56px);overflow:auto;white-space:pre-wrap;word-break:break-word;font:12px/1.65 Consolas,monospace;color:#d9ded5}
     .recording{display:none;border:1px solid rgba(216,255,82,.25);background:rgba(216,255,82,.05);padding:13px;margin:0 0 14px;border-radius:8px;color:#dbeaac;font-size:12px}.recording.show{display:block}.spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(216,255,82,.25);border-top-color:var(--acid);border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;vertical-align:-2px}@keyframes spin{to{transform:rotate(360deg)}}
+    :focus-visible{outline:3px solid var(--acid);outline-offset:3px}
+    .error-feedback{margin:16px 20px;padding:14px;border:1px solid var(--danger);border-radius:7px;font-size:13px;line-height:1.5;overflow-wrap:anywhere}.error-feedback button{margin-top:10px}
     @media(max-width:1050px){.shell{grid-template-columns:1fr}aside{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);display:block;padding:16px 20px}.brand{margin:0}.nav,.nav-label,.local{display:none}main{padding:28px 20px}.hero,.workspace{grid-template-columns:1fr}.proof-strip{margin-top:10px}}
     @media(max-width:620px){h1{font-size:48px}.proof-strip,.grid2,.score-row{grid-template-columns:1fr}.proof{border-right:0;border-bottom:1px solid var(--line)}.proof:last-child{border:0}.topbar{align-items:flex-start;gap:12px}.status-mini{display:none}}
   </style>
@@ -82,32 +84,33 @@
     <section class="workspace">
       <div class="card">
         <div class="card-head"><h2>Capture bay</h2><span class="step-chip">STEP 01</span></div>
-        <div class="tabs"><button class="tab active" data-tab="record">Record live</button><button class="tab" data-tab="compile">Compile codegen</button></div>
+        <div class="tabs" role="tablist" aria-label="Capture method"><button id="tab-record" class="tab active" role="tab" aria-selected="true" aria-controls="pane-record" data-tab="record">Record live</button><button id="tab-compile" class="tab" role="tab" aria-selected="false" aria-controls="pane-compile" tabindex="-1" data-tab="compile">Compile codegen</button></div>
+        <div id="error-feedback" class="error-feedback" hidden><div id="error-message" role="alert" aria-atomic="true"></div><button id="dismiss-error" class="ghost">Dismiss error</button></div>
 
-        <div class="pane active" id="pane-record">
+        <div class="pane active" id="pane-record" role="tabpanel" aria-labelledby="tab-record">
           <div class="grid2">
-            <div class="field"><label>Workflow name</label><input id="r-name" value="My reliable browser flow" maxlength="80"></div>
-            <div class="field"><label>Start URL</label><input id="r-url" value="https://example.com" spellcheck="false"></div>
+            <div class="field"><label for="r-name">Workflow name</label><input id="r-name" value="My reliable browser flow" maxlength="80"></div>
+            <div class="field"><label for="r-url">Start URL</label><input id="r-url" value="https://example.com" spellcheck="false"></div>
           </div>
-          <div class="field"><label>Intent</label><input id="r-intent" value="Complete the demonstrated browser workflow and prove the expected state appears."></div>
+          <div class="field"><label for="r-intent">Intent</label><input id="r-intent" value="Complete the demonstrated browser workflow and prove the expected state appears."></div>
           <div class="grid2">
-            <div class="field"><label>Mechanical success</label><input id="r-success" value="All recorded browser assertions pass."></div>
-            <div class="field"><label>Success text (optional)</label><input id="r-success-text" placeholder="e.g. Order confirmed"></div>
+            <div class="field"><label for="r-success">Mechanical success</label><input id="r-success" value="All recorded browser assertions pass."></div>
+            <div class="field"><label for="r-success-text">Success text (optional)</label><input id="r-success-text" placeholder="e.g. Order confirmed"></div>
           </div>
           <label class="check"><input type="checkbox" id="r-redact" checked><span>Protect every typed value as an environment variable. Recommended for sharable skills.</span></label>
           <div class="recording" id="recording"><span class="spinner"></span><b>Recorder is open.</b> Complete the browser flow, add an assertion in Playwright Inspector, then close the recorder window.</div>
-          <div class="actions"><button class="primary" id="record-btn">Open browser recorder</button><span class="hint">Uses local Chrome. Nothing is uploaded.</span></div>
+          <div class="actions"><button class="primary" id="record-btn">Open browser recorder</button><span class="hint">Uses local Chromium. Nothing is uploaded.</span></div>
         </div>
 
-        <div class="pane" id="pane-compile">
+        <div class="pane" id="pane-compile" role="tabpanel" aria-labelledby="tab-compile">
           <div class="grid2">
-            <div class="field"><label>Workflow name</label><input id="c-name" value="Agent release gate" maxlength="80"></div>
-            <div class="field"><label>Intent</label><input id="c-intent" value="Validate a protected agent configuration and prove it is ready."></div>
+            <div class="field"><label for="c-name">Workflow name</label><input id="c-name" value="Agent release gate" maxlength="80"></div>
+            <div class="field"><label for="c-intent">Intent</label><input id="c-intent" value="Validate a protected agent configuration and prove it is ready."></div>
           </div>
-          <div class="field"><label>Playwright Python codegen</label><textarea id="c-code" spellcheck="false" placeholder="Paste Playwright python-pytest output here..."></textarea></div>
+          <div class="field"><label for="c-code">Playwright Python codegen</label><textarea id="c-code" spellcheck="false" placeholder="Paste Playwright python-pytest output here..."></textarea></div>
           <div class="grid2">
-            <div class="field"><label>Mechanical success</label><input id="c-success" value="The exact deterministic ready state is visible."></div>
-            <div class="field"><label>Success text (optional)</label><input id="c-success-text" placeholder="e.g. Results"></div>
+            <div class="field"><label for="c-success">Mechanical success</label><input id="c-success" value="The exact deterministic ready state is visible."></div>
+            <div class="field"><label for="c-success-text">Success text (optional)</label><input id="c-success-text" placeholder="e.g. Results"></div>
           </div>
           <label class="check"><input type="checkbox" id="c-redact" checked><span>Redact every typed value. Sensitive selectors are always protected automatically.</span></label>
           <div class="actions"><button class="primary" id="compile-btn">Compile artifacts</button><button class="ghost" id="sample-btn">Load sample</button><button class="secondary" id="demo-btn">Generate safe demo</button></div>
@@ -140,8 +143,8 @@
   </main>
 </div>
 
-<div class="toast" id="toast"></div>
-<dialog id="preview-dialog"><div class="modal-head"><b id="preview-title">ARTIFACT</b><button id="close-preview" aria-label="Close">×</button></div><pre class="preview" id="preview"></pre></dialog>
+<div class="toast" id="toast" role="status" aria-atomic="true"></div>
+<dialog id="preview-dialog" aria-labelledby="preview-title"><div class="modal-head"><b id="preview-title">ARTIFACT</b><button id="close-preview" aria-label="Close">×</button></div><pre class="preview" id="preview" tabindex="0" aria-label="Artifact contents"></pre></dialog>
 
 <script>
 const TOKEN = "__FLOW2SKILL_TOKEN__";
@@ -154,17 +157,41 @@ const api = async (url, options={}) => {
   if (!response.ok) throw new Error(data.error || `Request failed: ${response.status}`);
   return data;
 };
+const clearError = () => {$('error-feedback').hidden=true;$('error-message').textContent='';};
 const toast = (message, error=false) => {
-  const el=$('toast'); el.textContent=message; el.className='toast show'+(error?' error':'');
-  clearTimeout(window.toastTimer); window.toastTimer=setTimeout(()=>el.className='toast',4500);
+  const el=$('toast');clearTimeout(window.toastTimer);
+  if(error){
+    el.textContent='';el.className='toast';
+    $('error-feedback').hidden=false;$('error-message').textContent=message;
+    return;
+  }
+  clearError();el.textContent=message;el.className='toast show';
+  window.toastTimer=setTimeout(()=>el.className='toast',4500);
 };
-const val = id => $(id).value.trim();
-
-for (const tab of document.querySelectorAll('.tab')) tab.addEventListener('click',()=>{
-  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-  document.querySelectorAll('.pane').forEach(x=>x.classList.remove('active'));
-  tab.classList.add('active'); $('pane-'+tab.dataset.tab).classList.add('active');
+$('dismiss-error').addEventListener('click',()=>{
+  clearError();document.querySelector('.tab.active').focus();
 });
+const val = id => $(id).value.trim();
+const tabs=[...document.querySelectorAll('[role="tab"]')];
+const activateTab = tab => {
+  for(const item of tabs){
+    const active=item===tab;
+    item.classList.toggle('active',active);item.setAttribute('aria-selected',String(active));
+    item.tabIndex=active?0:-1;$('pane-'+item.dataset.tab).classList.toggle('active',active);
+  }
+};
+for(const tab of tabs){
+  tab.addEventListener('click',()=>activateTab(tab));
+  tab.addEventListener('keydown',event=>{
+    let index=tabs.indexOf(tab);
+    if(event.key==='ArrowRight')index=(index+1)%tabs.length;
+    else if(event.key==='ArrowLeft')index=(index-1+tabs.length)%tabs.length;
+    else if(event.key==='Home')index=0;
+    else if(event.key==='End')index=tabs.length-1;
+    else return;
+    event.preventDefault();activateTab(tabs[index]);tabs[index].focus();
+  });
+}
 
 const SAMPLE = `from playwright.sync_api import Page, expect
 
@@ -188,7 +215,7 @@ const renderResult = data => {
   for(const file of files){
     const row=document.createElement('div');row.className='artifact';
     const code=document.createElement('code');code.textContent=file;
-    const button=document.createElement('button');button.textContent='PREVIEW ↗';
+    const button=document.createElement('button');button.textContent='PREVIEW ↗';button.setAttribute('aria-label',`Preview ${file}`);
     button.addEventListener('click',()=>previewArtifact(workspace,file));
     row.append(code,button);$('artifact-list').append(row);
   }
@@ -216,12 +243,14 @@ $('demo-btn').addEventListener('click',async()=>{
 let pollTimer=null, currentJobId=null;
 $('record-btn').addEventListener('click',async()=>{
   const btn=$('record-btn');
+  if(btn.disabled)return;
+  btn.disabled=true;
   if(currentJobId){
     try{
       await api(`/api/record/${currentJobId}/cancel`,{method:'POST',body:'{}'});
       clearTimeout(pollTimer);currentJobId=null;$('recording').classList.remove('show');
       btn.textContent='Open browser recorder';toast('Recording cancelled. Raw capture deleted.');
-    }catch(e){toast(e.message,true)}
+    }catch(e){toast(e.message,true)}finally{btn.disabled=false}
     return;
   }
   btn.textContent='Cancel recording';$('recording').classList.add('show');
@@ -229,19 +258,31 @@ $('record-btn').addEventListener('click',async()=>{
     const job=await api('/api/record/start',{method:'POST',body:JSON.stringify({
       name:val('r-name'),url:val('r-url'),intent:val('r-intent'),
       success_criteria:val('r-success'),success_text:val('r-success-text'),
-      redact_all_inputs:$('r-redact').checked,channel:'chrome'
+      redact_all_inputs:$('r-redact').checked
     })});
     currentJobId=job.job_id;
+    btn.disabled=false;
+    let statusFailures=0;
     const poll=async()=>{
+      if(currentJobId!==job.job_id)return;
       try{
         const state=await api('/api/record/'+job.job_id);
+        if(currentJobId!==job.job_id)return;
+        statusFailures=0;
+        $('recording').querySelector('b').textContent='Recorder is open.';
         if(state.state==='recording'){pollTimer=setTimeout(poll,1200);return}
         $('recording').classList.remove('show');currentJobId=null;btn.textContent='Open browser recorder';
         if(state.state==='complete'){renderResult({...state,workspace:state.workflow.slug,path:state.workspace,files:Object.fromEntries(Object.entries(state.files).map(([k,v])=>[k,v.split(/[\\/]/).pop()]))});toast('Recording compiled. Raw capture deleted.');}
         else toast(state.error||'Recording failed.',true);
-      }catch(e){$('recording').classList.remove('show');currentJobId=null;btn.textContent='Open browser recorder';toast(e.message,true)}
+      }catch(e){
+        if(currentJobId!==job.job_id)return;
+        statusFailures++;
+        $('recording').querySelector('b').textContent='Status unavailable — retrying. You can still cancel.';
+        if(statusFailures===1)toast('Cannot check recorder status. Retrying; the recorder may still be running.',true);
+        pollTimer=setTimeout(poll,Math.min(1000*2**Math.min(statusFailures,4),10000));
+      }
     }; poll();
-  }catch(e){$('recording').classList.remove('show');currentJobId=null;btn.textContent='Open browser recorder';toast(e.message,true)}
+  }catch(e){$('recording').classList.remove('show');currentJobId=null;btn.textContent='Open browser recorder';toast(e.message,true)}finally{btn.disabled=false}
 });
 
 const previewArtifact=async(workspace,file)=>{
@@ -251,9 +292,11 @@ $('close-preview').addEventListener('click',()=> $('preview-dialog').close());
 $('preview-dialog').addEventListener('click',e=>{if(e.target===$('preview-dialog'))$('preview-dialog').close()});
 
 const loadWorkspace = async item => {
+  try{
   const flow=await api(`/api/artifact?workspace=${encodeURIComponent(item.slug)}&file=flow.json`);
   const parsed=JSON.parse(flow.content);
   renderResult({workspace:item.slug,path:item.path,workflow:parsed,files:{flow_json:'flow.json',flow_yaml:'flow.yaml',skill:'SKILL.md',test:`test_${item.slug.replaceAll('-','_')}.py`,readme:'README.md'}});
+  }catch(e){toast(e.message,true)}
 };
 const loadWorkspaces=async()=>{
   try{
@@ -263,7 +306,7 @@ const loadWorkspaces=async()=>{
       const row=document.createElement('div');row.className='recent-item';
       const text=document.createElement('div');const b=document.createElement('b');b.textContent=item.name;
       const s=document.createElement('small');s.textContent=`${item.actions} steps · ${item.assertions} assertions`;
-      const open=document.createElement('button');open.textContent='OPEN';open.addEventListener('click',()=>loadWorkspace(item));
+      const open=document.createElement('button');open.textContent='OPEN';open.setAttribute('aria-label',`Open workspace ${item.name}`);open.addEventListener('click',()=>loadWorkspace(item));
       text.append(b,s);row.append(text,open);root.append(row);
     }
   }catch(e){toast(e.message,true)}

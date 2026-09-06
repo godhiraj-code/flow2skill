@@ -1,0 +1,47 @@
+{
+  "name": "Legacy fixture",
+  "intent": "Replay the demonstrated browser workflow reliably.",
+  "start_url": "https://example.test",
+  "actions": [
+    {
+      "kind": "goto",
+      "selector": {
+        "engine": "page",
+        "value": null,
+        "role": null,
+        "name": null,
+        "exact": null,
+        "modifiers": []
+      },
+      "value": "https://example.test",
+      "expected": null,
+      "risk": "safe",
+      "source_line": 2,
+      "note": null
+    },
+    {
+      "kind": "assert_visible",
+      "selector": {
+        "engine": "text",
+        "value": "Ready",
+        "role": null,
+        "name": null,
+        "exact": null,
+        "modifiers": []
+      },
+      "value": null,
+      "expected": true,
+      "risk": "safe",
+      "source_line": 3,
+      "note": null
+    }
+  ],
+  "success_criteria": "The recorded assertions pass.",
+  "variables": [],
+  "warnings": [],
+  "created_at": "2026-09-06T00:00:00+00:00",
+  "schema_version": "1.0",
+  "source": "playwright-codegen",
+  "slug": "legacy-fixture",
+  "fingerprint": "14ea5ae7965e15995b3d7faa596407a630d480b6b59d9d431909c6e820053b77"
+}

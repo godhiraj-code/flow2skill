@@ -29,7 +29,7 @@ Browser agents are useful when the path is unknown. They are expensive and incon
 - **Parse, never execute:** recordings are inspected through Python's AST and are never imported or run.
 - **Protected by default:** typed values and text/value assertions become environment variables.
 - **Echo-aware:** a protected input repeated in later selector or result text is replaced with the same runtime variable.
-- **Fail closed:** dynamic values, nested locator scopes, control flow, multiple tests, missing assertions, unknown selector modifiers, and unsupported calls stop compilation.
+- **Fail closed:** dynamic values, unsupported locator operations, control flow, multiple tests, missing assertions, unknown selector modifiers, and unsupported calls stop compilation.
 - **Review before mutation:** all clicks, key presses, fills, selections, and check operations are review-gated. Publish, send, buy, submit, delete, and similar actions are approval-gated.
 - **Proof required:** a workflow without an executable assertion is rejected.
 - **Portable:** the generated pytest does not depend on Flow2Skill at runtime.
@@ -43,11 +43,14 @@ Prerequisites:
 - Chromium installed through Playwright, required for default replay.
 
 ```bash
-python -m pip install flow2skill
+python -m pip install "flow2skill[test]"
 python -m playwright install chromium
 flow2skill doctor
 flow2skill studio
 ```
+
+The `test` extra installs pytest for the standalone regression proofs. For compiling,
+Studio, or CLI replay without pytest, install the base `flow2skill` package.
 
 From a source checkout:
 
@@ -62,7 +65,29 @@ python -m venv .venv
 
 Windows source checkouts also include `launch-flow2skill.bat`. Installed wheels use the `flow2skill` console command; the batch launcher is not installed by the wheel.
 
+Recording uses Playwright-managed Chromium by default, matching `doctor` and the browser
+installation above. To use a separately installed Google Chrome instead, pass `--channel chrome`
+to `flow2skill record`. Studio uses managed Chromium.
+
 Studio opens at `http://127.0.0.1:8765` and writes bundles to `~/Flow2SkillWorkspaces` unless another root is supplied.
+
+## Diagnose setup
+
+```bash
+flow2skill doctor
+flow2skill doctor --mode compile
+flow2skill doctor --mode record
+flow2skill doctor --mode replay --json
+```
+
+The default checks recording and replay prerequisites. Compile mode does not require
+Node.js or a browser; replay mode does not require Node.js. Each failed check includes
+a repair instruction. Missing pytest is a warning for exported proofs, because CLI
+replay itself does not use pytest. Exit code `2` means a required prerequisite is
+missing or mismatched; `0` means the selected prerequisite checks passed.
+
+Doctor inspects installation state without launching a browser. Run the demo proof
+to verify real browser execution; a successful setup check is not workflow evidence.
 
 ## Thirty-second proof
 
@@ -79,7 +104,7 @@ Run it against Flow2Skill's packaged local fixture:
 F2S_LABEL_API_TOKEN_1="runtime-demo-token" \
 FLOW2SKILL_LIVE=1 \
 FLOW2SKILL_ALLOW_SIDE_EFFECTS=1 \
-pytest -q ./flow2skill-demo/test_agent_release_gate.py
+python -m pytest -q ./flow2skill-demo/test_agent_release_gate.py
 ```
 
 Windows Command Prompt:
@@ -88,7 +113,7 @@ Windows Command Prompt:
 set F2S_LABEL_API_TOKEN_1=runtime-demo-token
 set FLOW2SKILL_LIVE=1
 set FLOW2SKILL_ALLOW_SIDE_EFFECTS=1
-pytest -q flow2skill-demo\test_agent_release_gate.py
+python -m pytest -q flow2skill-demo\test_agent_release_gate.py
 ```
 
 The side-effect flag is required because the proof fills a synthetic API-token field and clicks a validation button, even though the packaged fixture is local and harmless. The captured synthetic value is absent from the generated bundle.
@@ -132,20 +157,43 @@ Run the generated standalone proof:
 FLOW2SKILL_LIVE=1 pytest -q ./compiled-flow/test_documentation_search.py
 ```
 
+Live CLI replay and exported tests check all protected runtime variables before opening
+the browser. Missing variables are reported together; an explicitly empty value is allowed.
+Dry-run inspection does not require values.
+
 Use `FLOW2SKILL_HEADED=1` to watch. Any workflow containing review or approval actions also requires `FLOW2SKILL_ALLOW_SIDE_EFFECTS=1`. Set it only after reviewing the exact generated plan. Use `FLOW2SKILL_CHANNEL=chrome` to replay with an installed Chrome channel instead of Playwright's managed Chromium.
 
 ## Supported capture surface
 
 - one synchronous pytest-style test function;
+- the exact session fixture emitted by `--block-service-workers`; other context fixtures are rejected;
 - direct Playwright call statements only;
 - `page.goto`;
-- role, label, placeholder, text, test-id, title, alt-text, and CSS selectors;
-- `.first` and literal `.nth(...)` modifiers;
-- `click`, `fill`, `press`, `select_option`, `check`, `uncheck`, and `hover`;
+- role, label, placeholder, text, test-id, title, alt-text, and CSS selectors, including direct chains scoped inside another locator;
+- `.first` and nonnegative integer `.nth(...)` modifiers on element locators;
+- locator `click`, `fill`, `press`, `select_option`, `check`, `uncheck`, and `hover`;
 - `expect(...).to_be_visible()`;
 - exact `to_have_text()` and substring `to_contain_text()` assertions;
 - `expect(page).to_have_url()`;
 - `expect(...).to_have_value()`.
+
+Recorder, CLI replay, and exported proofs block service workers consistently. Arbitrary
+context options and user fixture code are not executed. Navigation and URL assertions
+require `page`; element actions and assertions require locators. Test-id and CSS
+selectors do not accept `exact`. Invalid targets and options stop compilation.
+
+For example, this keeps both the dialog scope and the selected row:
+
+```python
+page.get_by_role("dialog", name="Profile").first.locator(".row").nth(1).get_by_role("button", name="Save").click()
+```
+
+Scope is retained in the manifest, skill instructions, replay, and standalone test.
+Protected values and approval classification include parent selectors. New manifests
+use schema 1.1; schema 1.0 manifests retain their original fingerprints when loaded
+and exported. Older Flow2Skill versions cannot read schema 1.1 manifests, but exported
+Python tests remain standalone. Locator filters, frame locators, and dynamic scopes
+are still unsupported.
 
 Unsupported calls, dynamic expressions, assignments, loops, branches, context managers, nested functions, and multiple tests are rejected. They are never flattened or silently omitted.
 
@@ -202,3 +250,23 @@ Flow2Skill does not include cloud sync, a browser extension, shared secret stora
 ## License
 
 MIT
+
+## Bundle recovery
+
+An export replaces the generated files in its output directory; use a different output
+directory to retain a separate version. All five artifacts are rendered and staged
+before replacement. A failed replacement attempts to restore the previous files,
+including its generated test. Unrelated files are preserved. Exports to the same
+directory are serialized with `.flow2skill-write.lock`; wait for the current export
+to finish before reading or executing the bundle. The set of files is not an atomic
+directory snapshot for concurrent readers.
+
+A killed process or power loss can leave the lock and a `.flow2skill-stage-*` directory.
+Do not remove a lock while an export is running. Check the PID recorded in it and
+confirm that export has stopped. Keep a copy of the whole output directory before
+recovery. Staging `old/` contains backups of files that existed before replacement;
+`new/` contains any staged files that were not yet published. Restore the old files
+and remove newly introduced generated files, or regenerate the bundle into a fresh
+directory from the original recording. Do not execute a mixed or unverified bundle.
+Remove the stale lock only after recovery; retained staging directories can then be
+removed. Incomplete rollback reports its recovery directory and keeps the lock.

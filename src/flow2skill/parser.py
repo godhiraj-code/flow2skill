@@ -6,6 +6,7 @@ from typing import Any
 
 from .model import (
     ANY_PLACEHOLDER_SCAN_RE,
+    MAX_SELECTOR_DEPTH,
     PLACEHOLDER_SCAN_RE,
     Action,
     FlowValidationError,
@@ -14,6 +15,7 @@ from .model import (
     classify_risk,
     redact_url,
     sanitize_fill_value,
+    validate_action_target,
 )
 
 _MISSING = object()
@@ -79,11 +81,13 @@ def _root_is_page(node: ast.AST) -> bool:
     return isinstance(node, ast.Name) and node.id == "page"
 
 
-def _selector(node: ast.AST) -> Selector | None:
+def _selector(node: ast.AST, depth: int = 0) -> Selector | None:
+    if depth >= MAX_SELECTOR_DEPTH:
+        return None
     if isinstance(node, ast.Name) and node.id == "page":
         return Selector("page")
     if isinstance(node, ast.Attribute) and node.attr == "first":
-        base = _selector(node.value)
+        base = _selector(node.value, depth + 1)
         if base:
             return Selector(**{**base.__dict__, "modifiers": (*base.modifiers, "first")})
     if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
@@ -93,17 +97,28 @@ def _selector(node: ast.AST) -> Selector | None:
     if method == "nth":
         if not _valid_call_shape(node, positional=1):
             return None
-        base = _selector(node.func.value)
+        base = _selector(node.func.value, depth + 1)
         index = _literal(node.args[0], _MISSING) if node.args else _MISSING
-        if base and isinstance(index, int) and index >= 0:
+        if base and type(index) is int and index >= 0:
             return Selector(**{**base.__dict__, "modifiers": (*base.modifiers, f"nth:{index}")})
         return None
 
     engine = SELECTOR_METHODS.get(method)
-    if not (engine and isinstance(node.func.value, ast.Name) and node.func.value.id == "page"):
+    if not engine:
         return None
+    base = _selector(node.func.value, depth + 1)
+    if base is None:
+        return None
+    if base.engine == "page":
+        if base.modifiers:
+            return None
+        parent = None
+    else:
+        parent = base
     allowed_keywords = (
-        {"name", "exact"} if engine == "role" else ({"exact"} if engine != "css" else set())
+        {"name", "exact"}
+        if engine == "role"
+        else ({"exact"} if engine not in {"css", "test_id"} else set())
     )
     if not _valid_call_shape(node, positional=1, keywords=allowed_keywords):
         return None
@@ -120,24 +135,43 @@ def _selector(node: ast.AST) -> Selector | None:
         name = _literal(name_node, _MISSING) if name_node is not None else None
         if name is _MISSING or (name is not None and not isinstance(name, str)):
             return None
-        return Selector(engine="role", role=role, name=name, exact=exact)
+        return Selector(engine="role", role=role, name=name, exact=exact, parent=parent)
 
     value = _literal(node.args[0], _MISSING) if node.args else _MISSING
     if not isinstance(value, str) or not value:
         return None
-    return Selector(engine=engine, value=value, exact=exact)
+    return Selector(engine=engine, value=value, exact=exact, parent=parent)
 
 
 def _call_arg(call: ast.Call, index: int = 0, default: Any = None) -> Any:
     return _literal(call.args[index], default) if len(call.args) > index else default
 
 
+# Playwright emits this fixture when the recorder uses --block-service-workers.
+# Accept only this exact declarative setting; never execute user fixtures.
+_BLOCKED_SERVICE_WORKERS_FIXTURE = ast.dump(
+    ast.parse(
+        '@pytest.fixture(scope="session")\n'
+        "def browser_context_args(browser_context_args, playwright):\n"
+        '    return {"service_workers": "block"}\n'
+    ).body[0]
+)
+
+
 def _portable_calls(tree: ast.Module) -> list[ast.Call]:
     functions = [
-        node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and ast.dump(node) != _BLOCKED_SERVICE_WORKERS_FIXTURE
     ]
     if len(functions) != 1 or isinstance(functions[0], ast.AsyncFunctionDef):
         raise FlowValidationError("Recording must contain exactly one synchronous test function")
+    context_fixtures = [
+        node for node in tree.body if ast.dump(node) == _BLOCKED_SERVICE_WORKERS_FIXTURE
+    ]
+    if len(context_fixtures) > 1:
+        raise FlowValidationError("Duplicate browser context fixtures are not supported")
     test_function = functions[0]
     if not test_function.name.startswith("test"):
         raise FlowValidationError("Recorded function name must start with `test`")
@@ -236,7 +270,14 @@ def parse_codegen(
             name=protect_text(selector.name) if selector.name is not None else None,
             exact=selector.exact,
             modifiers=selector.modifiers,
+            parent=protect_selector(selector.parent, line) if selector.parent else None,
         )
+
+    def check_target(kind: str, selector: Selector, method: str, line: int | None) -> None:
+        try:
+            validate_action_target(kind, selector)
+        except FlowValidationError as exc:
+            fail(method, line, str(exc))
 
     def add_placeholders(value: Any) -> None:
         if isinstance(value, str):
@@ -273,8 +314,9 @@ def parse_codegen(
             selector = _selector(expect_call.args[0])
             if not selector:
                 fail(method, line, "assertion target is dynamic or not portable")
-            selector = protect_selector(selector, line)
             kind = ASSERT_METHODS[method]
+            check_target(kind, selector, method, line)
+            selector = protect_selector(selector, line)
             expected = _call_arg(call, default=_MISSING)
             if kind == "assert_visible":
                 expected = True
@@ -315,6 +357,7 @@ def parse_codegen(
         selector = _selector(call.func.value)
         if selector is None:
             fail(method, line, "action target is dynamic or not portable")
+        check_target(method, selector, method, line)
         selector = protect_selector(selector, line)
 
         if method == "goto":
