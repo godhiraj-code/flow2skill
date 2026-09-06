@@ -118,6 +118,20 @@ python -m pytest -q flow2skill-demo\test_agent_release_gate.py
 
 The side-effect flag is required because the proof fills a synthetic API-token field and clicks a validation button, even though the packaged fixture is local and harmless. The captured synthetic value is absent from the generated bundle.
 
+## Check that a regression is detected
+
+The [scoped trial runner](https://github.com/godhiraj-code/flow2skill/blob/main/examples/scoped_trial.py)
+uses a local page with two Save buttons. With Flow2Skill 0.2.0 and Chromium installed,
+save the script in a writable folder and run `python scoped_trial.py`. It compiles a
+synthetic recording, requires a passing standalone test, changes the page's success
+message and requires a failure, then restores the page and requires a pass again.
+It retains the output in `trial-output/evidence.txt` and never opens an external site.
+The script is also included in the source archive under `examples/`.
+
+The recording is hand-written. This checks scope preservation and regression detection;
+it does not verify interactive Inspector recording. The runner overwrites its own
+`trial-output` files on reruns. Review the script before enabling execution on your machine.
+
 ## Record a workflow
 
 ```bash

@@ -18,8 +18,8 @@ jobs:
       - name: Test and build source tree
         run: |
           python -m pip install -e ".[dev]"
-          python -m ruff format --check src tests scripts
-          python -m ruff check src tests scripts
+          python -m ruff format --check src tests scripts examples
+          python -m ruff check src tests scripts examples
           PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q
           python -m build
           python -m twine check dist/*

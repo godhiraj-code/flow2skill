@@ -3,4 +3,4 @@
 from .model import Action, Selector, Workflow
 
 __all__ = ["Action", "Selector", "Workflow"]
-__version__ = "0.1.0"
+__version__ = "0.2.0"

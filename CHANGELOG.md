@@ -4,11 +4,17 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-06
+
 ### Added
+
+- A runnable local regression trial demonstrates pass, changed-page failure, and restored pass using the same exported test. Source archives include the trial and JSON compatibility fixtures; CI runs tests from the archive.
 
 - Scoped locator chains preserve each parent, `.first` and `.nth(...)` modifier through replay and export. Parent selectors participate in protected-input handling and approval classification. Schema 1.1 represents scope; schema 1.0 manifests retain their original fingerprints.
 
 ### Fixed
+
+- Protected inputs no longer rewrite generated placeholder names. Longer protected values retain precedence; ambiguous crossing overlaps fail with a value-free diagnostic instead of exposing part of an input. Browser regression coverage verifies replay and standalone export with substituted inputs.
 
 - Bundle exports stage all artifacts before replacement, restore previous files on write failure, and serialize writers with a workspace lock. Incomplete rollback preserves backups and the lock for documented manual recovery.
 
