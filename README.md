@@ -148,6 +148,7 @@ Use `FLOW2SKILL_HEADED=1` to watch. Any workflow containing review or approval a
 ## Supported capture surface
 
 - one synchronous pytest-style test function;
+- the exact session fixture emitted by `--block-service-workers`; other context fixtures are rejected;
 - direct Playwright call statements only;
 - `page.goto`;
 - role, label, placeholder, text, test-id, title, alt-text, and CSS selectors;
@@ -157,6 +158,9 @@ Use `FLOW2SKILL_HEADED=1` to watch. Any workflow containing review or approval a
 - exact `to_have_text()` and substring `to_contain_text()` assertions;
 - `expect(page).to_have_url()`;
 - `expect(...).to_have_value()`.
+
+Recorder, CLI replay, and exported proofs block service workers consistently. Arbitrary
+context options and user fixture code are not executed.
 
 Unsupported calls, dynamic expressions, assignments, loops, branches, context managers, nested functions, and multiple tests are rejected. They are never flattened or silently omitted.
 

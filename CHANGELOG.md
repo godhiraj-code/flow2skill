@@ -6,6 +6,9 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Compiler accepts the exact service-worker-blocking context fixture emitted by Flow2Skill’s pinned recorder. Replay and standalone proofs retain that setting; unknown fixture behavior is rejected.
+- Browser CI runs the actual headless codegen process, compiles its output, checks temporary capture cleanup, and executes the generated proof.
+
 - Studio preserves active recorder controls during transient status failures, retries with bounded backoff, and prevents duplicate starts while a request is pending.
 - Browser CI exercises Studio demo export, artifact preview, executable proof, and recorder status recovery against the installed wheel.
 

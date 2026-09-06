@@ -131,3 +131,53 @@ def test_recorder_status_failure_keeps_cancel_and_retries(studio):
     expect(button).to_have_text("Open browser recorder")
     expect(page.locator("#recording")).not_to_be_visible()
     assert cancelled == [True]
+
+
+def test_real_codegen_capture_compiles_and_replays(tmp_path):
+    """Exercise the actual pinned Node recorder, not fabricated Python input.
+
+    Playwright's headless test hook closes the recorder after initial navigation.
+    This covers process/capture compatibility, not interactive input recording.
+    """
+    fixture = tmp_path / "fixture.html"
+    fixture.write_text("<!doctype html><h1>Recorder smoke ready</h1>", encoding="utf-8")
+    output = tmp_path / "recorded"
+    environment = {
+        **os.environ,
+        "PWTEST_CLI_HEADLESS": "1",
+        "PWTEST_CLI_IS_UNDER_TEST": "1",
+        "PWTEST_CLI_EXIT_AFTER_TIMEOUT": "10000",
+        "npm_config_cache": str(tmp_path / "npm-cache"),
+    }
+    recording = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "flow2skill",
+            "record",
+            fixture.as_uri(),
+            "--name",
+            "Actual codegen",
+            "--success-text",
+            "Recorder smoke ready",
+            "--out",
+            str(output),
+        ],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert recording.returncode == 0, recording.stdout + recording.stderr
+    assert not list(output.rglob(".*.raw.py"))
+    assert not list(output.rglob(".*.recorder.log"))
+    proof = output / "actual-codegen" / "test_actual_codegen.py"
+    assert proof.is_file()
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", str(proof)],
+        env={**os.environ, "FLOW2SKILL_LIVE": "1", "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"},
+        capture_output=True,
+        text=True,
+        timeout=45,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

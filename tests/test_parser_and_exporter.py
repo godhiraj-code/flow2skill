@@ -401,3 +401,36 @@ def test_bundle_without_valid_ownership_manifest_preserves_unrelated_tests(tmp_p
     write_bundle(safe_workflow(), tmp_path)
 
     assert unrelated.read_text(encoding="utf-8") == "HANDWRITTEN_RULE = True"
+
+
+CODEGEN_CONTEXT = """import pytest
+from playwright.sync_api import Page, expect
+
+@pytest.fixture(scope="session")
+def browser_context_args(browser_context_args, playwright):
+    return {"service_workers": "block"}
+
+def test_example(page: Page) -> None:
+    page.goto("https://example.test")
+    expect(page.get_by_text("Ready")).to_be_visible()
+"""
+
+
+def test_recorder_context_fixture_compiles_without_executing_it():
+    workflow = parse_codegen(CODEGEN_CONTEXT, name="Recorded context")
+    assert len(workflow.actions) == 2
+    assert 'browser.new_context(service_workers="block")' in render_test(workflow)
+
+
+@pytest.mark.parametrize(
+    "setting",
+    [
+        '{"service_workers": "allow"}',
+        '{"service_workers": "block", "locale": "fr-FR"}',
+        'dict(service_workers="block")',
+    ],
+)
+def test_unknown_context_fixture_behavior_is_rejected(setting):
+    source = CODEGEN_CONTEXT.replace('{"service_workers": "block"}', setting)
+    with pytest.raises(FlowValidationError):
+        parse_codegen(source, name="Unsupported context")

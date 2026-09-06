@@ -144,7 +144,7 @@ def test_{workflow.slug.replace("-", "_")}() -> None:{risk_guard}
             launch_options["channel"] = channel
         with (
             managed_resource(playwright.chromium.launch(**launch_options)) as browser,
-            managed_resource(browser.new_context()) as context,
+            managed_resource(browser.new_context(service_workers="block")) as context,
         ):
             page = context.new_page()
 {chr(10).join(body)}

@@ -132,12 +132,31 @@ def _call_arg(call: ast.Call, index: int = 0, default: Any = None) -> Any:
     return _literal(call.args[index], default) if len(call.args) > index else default
 
 
+# Playwright emits this fixture when the recorder uses --block-service-workers.
+# Accept only this exact declarative setting; never execute user fixtures.
+_BLOCKED_SERVICE_WORKERS_FIXTURE = ast.dump(
+    ast.parse(
+        '@pytest.fixture(scope="session")\n'
+        "def browser_context_args(browser_context_args, playwright):\n"
+        '    return {"service_workers": "block"}\n'
+    ).body[0]
+)
+
+
 def _portable_calls(tree: ast.Module) -> list[ast.Call]:
     functions = [
-        node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and ast.dump(node) != _BLOCKED_SERVICE_WORKERS_FIXTURE
     ]
     if len(functions) != 1 or isinstance(functions[0], ast.AsyncFunctionDef):
         raise FlowValidationError("Recording must contain exactly one synchronous test function")
+    context_fixtures = [
+        node for node in tree.body if ast.dump(node) == _BLOCKED_SERVICE_WORKERS_FIXTURE
+    ]
+    if len(context_fixtures) > 1:
+        raise FlowValidationError("Duplicate browser context fixtures are not supported")
     test_function = functions[0]
     if not test_function.name.startswith("test"):
         raise FlowValidationError("Recorded function name must start with `test`")

@@ -54,6 +54,7 @@ def test_original_failure_survives_evidence_and_cleanup_errors(
             exec(compile(render_test(workflow), "generated.py", "exec"), namespace)
             namespace["test_failure_proof"]()
     assert caught.value is original
+    browser.new_context.assert_called_once_with(service_workers="block")
     browser.close.assert_called_once()
     if failure_stage != "context":
         context.close.assert_called_once()
