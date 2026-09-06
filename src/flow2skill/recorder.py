@@ -4,9 +4,11 @@ import os
 import re
 import secrets
 import shutil
+import signal
 import subprocess
 import threading
 import time
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -102,12 +104,18 @@ class RecordingJob:
     log_path: Path
     process: subprocess.Popen[Any]
     redact_all_inputs: bool = True
+    owns_process_group: bool = False
     state: str = "recording"
     error: str | None = None
     result: dict[str, Any] | None = None
     _finalized: bool = field(default=False, repr=False)
+    _state_lock: Any = field(default_factory=threading.Lock, repr=False)
 
     def status(self) -> dict[str, Any]:
+        with self._state_lock:
+            return self._status()
+
+    def _status(self) -> dict[str, Any]:
         exit_code = self.process.poll()
         if exit_code is None:
             return {
@@ -160,20 +168,42 @@ class RecordingJob:
             self.log_path.unlink(missing_ok=True)
 
     def cancel(self) -> dict[str, Any]:
-        if self.process.poll() is None:
+        with self._state_lock:
+            return self._cancel()
+
+    def _cancel(self) -> dict[str, Any]:
+        if self._finalized:
+            return {"job_id": self.job_id, "state": self.state}
+        if os.name != "nt" and self.owns_process_group:
+            # The npm wrapper can exit before its recorder/browser children.
+            # Signal only the dedicated group created by RecorderManager.start.
+            with suppress(ProcessLookupError):
+                os.killpg(self.process.pid, signal.SIGTERM)
+            with suppress(subprocess.TimeoutExpired):
+                self.process.wait(timeout=5)
+            # Also stop descendants that ignored TERM, even if the wrapper exited.
+            with suppress(ProcessLookupError):
+                os.killpg(self.process.pid, signal.SIGKILL)
+            self.process.wait(timeout=5)
+        elif self.process.poll() is None:
             if os.name == "nt":
-                subprocess.run(
+                result = subprocess.run(
                     ["taskkill.exe", "/PID", str(self.process.pid), "/T", "/F"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     check=False,
                 )
+                if result.returncode != 0:
+                    raise FlowValidationError(
+                        "Could not stop the recorder process tree; cancellation is unconfirmed"
+                    )
             else:
                 self.process.terminate()
             try:
                 self.process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.process.kill()
+                self.process.wait(timeout=5)
         self._finalized = True
         self.state = "cancelled"
         self.raw_path.unlink(missing_ok=True)
@@ -228,6 +258,7 @@ class RecorderManager:
                 stderr=subprocess.STDOUT,
                 text=True,
                 creationflags=creationflags,
+                start_new_session=os.name != "nt",
             )
         except Exception:
             log_handle.close()
@@ -246,6 +277,7 @@ class RecorderManager:
             raw_path=raw_path,
             log_path=log_path,
             process=process,
+            owns_process_group=os.name != "nt",
             redact_all_inputs=redact_all_inputs,
         )
         with self._lock:

@@ -6,6 +6,9 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ### Fixed
 
+- POSIX recorder cancellation stops its dedicated process group, including children left behind by an exited npm wrapper, before removing captures. Failed Windows tree termination is reported as unconfirmed.
+- Status finalization and cancellation are serialized; cancelling an already completed job preserves its result.
+
 - Compiler accepts the exact service-worker-blocking context fixture emitted by Flow2Skill’s pinned recorder. Replay and standalone proofs retain that setting; unknown fixture behavior is rejected.
 - Browser CI runs the actual headless codegen process, compiles its output, checks temporary capture cleanup, and executes the generated proof.
 
