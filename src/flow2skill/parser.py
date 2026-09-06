@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 from typing import Any
 
@@ -242,17 +243,21 @@ def parse_codegen(
             )
 
     def protect_text(value: str) -> str:
-        protected = value
-        for literal, variable in sorted(
-            protected_literals.items(), key=lambda item: len(item[0]), reverse=True
-        ):
-            if literal and literal in protected:
-                if len(literal) < 3 and protected != literal:
-                    raise FlowValidationError(
-                        "A protected value is too short to substitute safely inside selector text"
-                    )
-                protected = protected.replace(literal, f"${{{variable}}}")
-        return protected
+        literals = sorted(filter(None, protected_literals), key=len, reverse=True)
+        if not literals:
+            return value
+
+        def replace(match: re.Match[str]) -> str:
+            literal = match.group(0)
+            if len(literal) < 3 and value != literal:
+                raise FlowValidationError(
+                    "A protected value is too short to substitute safely inside selector text"
+                )
+            return f"${{{protected_literals[literal]}}}"
+
+        # Match original text only: later literals must not rewrite newly inserted
+        # placeholder names. Prefer the longest literal at each matching position.
+        return re.sub("|".join(re.escape(literal) for literal in literals), replace, value)
 
     def protect_selector(selector: Selector, line: int | None) -> Selector:
         fields = {
