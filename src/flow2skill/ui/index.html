@@ -216,12 +216,14 @@ $('demo-btn').addEventListener('click',async()=>{
 let pollTimer=null, currentJobId=null;
 $('record-btn').addEventListener('click',async()=>{
   const btn=$('record-btn');
+  if(btn.disabled)return;
+  btn.disabled=true;
   if(currentJobId){
     try{
       await api(`/api/record/${currentJobId}/cancel`,{method:'POST',body:'{}'});
       clearTimeout(pollTimer);currentJobId=null;$('recording').classList.remove('show');
       btn.textContent='Open browser recorder';toast('Recording cancelled. Raw capture deleted.');
-    }catch(e){toast(e.message,true)}
+    }catch(e){toast(e.message,true)}finally{btn.disabled=false}
     return;
   }
   btn.textContent='Cancel recording';$('recording').classList.add('show');
@@ -232,16 +234,28 @@ $('record-btn').addEventListener('click',async()=>{
       redact_all_inputs:$('r-redact').checked
     })});
     currentJobId=job.job_id;
+    btn.disabled=false;
+    let statusFailures=0;
     const poll=async()=>{
+      if(currentJobId!==job.job_id)return;
       try{
         const state=await api('/api/record/'+job.job_id);
+        if(currentJobId!==job.job_id)return;
+        statusFailures=0;
+        $('recording').querySelector('b').textContent='Recorder is open.';
         if(state.state==='recording'){pollTimer=setTimeout(poll,1200);return}
         $('recording').classList.remove('show');currentJobId=null;btn.textContent='Open browser recorder';
         if(state.state==='complete'){renderResult({...state,workspace:state.workflow.slug,path:state.workspace,files:Object.fromEntries(Object.entries(state.files).map(([k,v])=>[k,v.split(/[\\/]/).pop()]))});toast('Recording compiled. Raw capture deleted.');}
         else toast(state.error||'Recording failed.',true);
-      }catch(e){$('recording').classList.remove('show');currentJobId=null;btn.textContent='Open browser recorder';toast(e.message,true)}
+      }catch(e){
+        if(currentJobId!==job.job_id)return;
+        statusFailures++;
+        $('recording').querySelector('b').textContent='Status unavailable — retrying. You can still cancel.';
+        if(statusFailures===1)toast('Cannot check recorder status. Retrying; the recorder may still be running.',true);
+        pollTimer=setTimeout(poll,Math.min(1000*2**Math.min(statusFailures,4),10000));
+      }
     }; poll();
-  }catch(e){$('recording').classList.remove('show');currentJobId=null;btn.textContent='Open browser recorder';toast(e.message,true)}
+  }catch(e){$('recording').classList.remove('show');currentJobId=null;btn.textContent='Open browser recorder';toast(e.message,true)}finally{btn.disabled=false}
 });
 
 const previewArtifact=async(workspace,file)=>{

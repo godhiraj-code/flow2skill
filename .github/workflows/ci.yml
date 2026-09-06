@@ -48,6 +48,11 @@ jobs:
           name: flow2skill-distributions
           path: dist/*
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flow2skill-browser-tests
+          path: tests/test_studio_browser.py
+          if-no-files-found: error
 
   browser-proof:
     needs: quality
@@ -77,3 +82,13 @@ jobs:
           .proof-venv/bin/flow2skill --version
           .proof-venv/bin/flow2skill demo --out .ci-demo
           .proof-venv/bin/python -m pytest -q .ci-demo/test_agent_release_gate.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: flow2skill-browser-tests
+          path: .browser-tests
+      - name: Verify Studio export and recorder recovery against the installed wheel
+        env:
+          FLOW2SKILL_BROWSER_TESTS: "1"
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+          PYTHONPATH: ""
+        run: .proof-venv/bin/python -m pytest -q .browser-tests/test_studio_browser.py
