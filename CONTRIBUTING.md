@@ -21,6 +21,7 @@ ruff check src tests
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q
 python -m build
 python -m twine check dist/*
+python scripts/verify_release.py
 ```
 
 Add regression tests for every parser, redaction, manifest, replay, recorder, or Studio security change. A parser change must state whether unsupported input is rejected or preserved. Silent omission is not acceptable.
@@ -37,3 +38,11 @@ Add regression tests for every parser, redaction, manifest, replay, recorder, or
 ## Reporting security issues
 
 Follow [SECURITY.md](SECURITY.md). Do not disclose vulnerabilities or sensitive recordings in public issues.
+
+## Release verification
+
+Before publishing a release, build into a clean `dist/` directory and run
+`python scripts/verify_release.py --tag vX.Y.Z` with the intended tag. It must match
+the built wheel, source archive, and source runtime version. The release workflow
+performs this check before publication and runs installed-wheel Studio/codegen tests.
+Do not reuse an existing PyPI version for changed artifacts.

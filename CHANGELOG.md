@@ -6,6 +6,9 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ### Fixed
 
+- Release verification requires the GitHub tag, wheel/source metadata, and source runtime version to agree; duplicate or incorrect package artifacts are rejected before publishing.
+- Release builds run the installed-package Studio and real-codegen integration tests.
+
 - Doctor supports compile/record/replay scopes and JSON output, reports per-check repair steps, handles missing package metadata, and distinguishes optional pytest from required dependencies.
 
 - POSIX recorder cancellation stops its dedicated process group, including children left behind by an exited npm wrapper, before removing captures. Failed Windows tree termination is reported as unconfirmed.
