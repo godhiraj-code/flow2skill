@@ -93,7 +93,8 @@ def serve(
             )
 
         def _authorized(self) -> bool:
-            return secrets.compare_digest(self.headers.get("X-Flow2Skill-Token", ""), token)
+            supplied = self.headers.get("X-Flow2Skill-Token", "").encode("utf-8")
+            return secrets.compare_digest(supplied, token.encode("ascii"))
 
         def _valid_authority(self, authority: str) -> bool:
             return valid_local_authority(authority, server.server_port)
@@ -105,7 +106,10 @@ def serve(
             origin = self.headers.get("Origin")
             if not origin:
                 return True
-            parsed = urlsplit(origin)
+            try:
+                parsed = urlsplit(origin)
+            except ValueError:
+                return False
             return parsed.scheme == "http" and self._valid_authority(parsed.netloc)
 
         def _require_auth(self) -> bool:
