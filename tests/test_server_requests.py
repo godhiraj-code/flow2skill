@@ -3,7 +3,9 @@ from __future__ import annotations
 import http.client
 import json
 import re
+import socket
 import threading
+from http.server import BaseHTTPRequestHandler
 
 import pytest
 
@@ -14,7 +16,7 @@ import flow2skill.server as studio
 def local_server(tmp_path, monkeypatch):
     ready = threading.Event()
     servers = []
-    original_server = studio.ThreadingHTTPServer
+    original_server = studio.LocalHTTPServer
 
     def create_server(*args, **kwargs):
         server = original_server(*args, **kwargs)
@@ -22,7 +24,7 @@ def local_server(tmp_path, monkeypatch):
         ready.set()
         return server
 
-    monkeypatch.setattr(studio, "ThreadingHTTPServer", create_server)
+    monkeypatch.setattr(studio, "LocalHTTPServer", create_server)
     thread = threading.Thread(
         target=studio.serve,
         kwargs={"port": 0, "workspace_root": tmp_path, "open_browser": False},
@@ -47,6 +49,16 @@ def request(port, path, headers=None):
         return response.status, response.read().decode("utf-8")
     finally:
         connection.close()
+
+
+def test_local_server_startup_does_not_resolve_reverse_dns(monkeypatch):
+    def unavailable_dns(*args):
+        raise AssertionError("Loopback startup must not depend on reverse DNS")
+
+    monkeypatch.setattr(socket, "getfqdn", unavailable_dns)
+    with studio.LocalHTTPServer(("127.0.0.1", 0), BaseHTTPRequestHandler) as server:
+        assert server.server_name == "127.0.0.1"
+        assert server.server_port > 0
 
 
 def test_malformed_auth_headers_return_forbidden_and_server_stays_healthy(local_server):

@@ -7,12 +7,21 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 from pathlib import Path
+from socketserver import TCPServer
 from urllib.parse import parse_qs, urlsplit
 
 from .model import FlowValidationError, Workflow, slugify
 from .recorder import RecorderManager, compile_source
 
 MAX_BODY = 1_000_000
+
+
+class LocalHTTPServer(ThreadingHTTPServer):
+    def server_bind(self) -> None:
+        # HTTPServer normally reverse-resolves the bound address. This local
+        # service needs only its numeric address and port; DNS can block startup.
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 
 def sample_recording(url: str) -> str:
@@ -323,7 +332,7 @@ def serve(
             except (FlowValidationError, OSError, ValueError) as exc:
                 self._json({"error": str(exc)}, 400)
 
-    server = ThreadingHTTPServer((host, port), Handler)
+    server = LocalHTTPServer((host, port), Handler)
     url = f"http://{host}:{server.server_port}/"
     print(f"Flow2Skill Studio: {url}")
     print(f"Workspaces: {root}")
