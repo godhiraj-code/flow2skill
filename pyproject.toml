@@ -35,6 +35,7 @@ Homepage = "https://github.com/godhiraj-code/flow2skill"
 Repository = "https://github.com/godhiraj-code/flow2skill"
 Issues = "https://github.com/godhiraj-code/flow2skill/issues"
 Changelog = "https://github.com/godhiraj-code/flow2skill/blob/main/CHANGELOG.md"
+X = "https://x.com/dkkkkd"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
