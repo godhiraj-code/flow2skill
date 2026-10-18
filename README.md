@@ -261,6 +261,10 @@ The release gate also installs the wheel into a clean environment, runs the pack
 
 Flow2Skill does not include cloud sync, a browser extension, shared secret storage, autonomous planning, or LLM selector healing. Those features create a platform before the deterministic compiler has earned it. The current product does one job: preserve a successful browser workflow as a reviewable procedure and executable proof.
 
+## Author
+
+[Dhiraj Das](https://www.dhirajdas.dev) · [Follow @dkkkkd on X](https://x.com/dkkkkd)
+
 ## License
 
 MIT
