@@ -7,12 +7,21 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 from pathlib import Path
+from socketserver import TCPServer
 from urllib.parse import parse_qs, urlsplit
 
 from .model import FlowValidationError, Workflow, slugify
 from .recorder import RecorderManager, compile_source
 
 MAX_BODY = 1_000_000
+
+
+class LocalHTTPServer(ThreadingHTTPServer):
+    def server_bind(self) -> None:
+        # HTTPServer normally reverse-resolves the bound address. This local
+        # service needs only its numeric address and port; DNS can block startup.
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 
 def sample_recording(url: str) -> str:
@@ -93,7 +102,8 @@ def serve(
             )
 
         def _authorized(self) -> bool:
-            return secrets.compare_digest(self.headers.get("X-Flow2Skill-Token", ""), token)
+            supplied = self.headers.get("X-Flow2Skill-Token", "").encode("utf-8")
+            return secrets.compare_digest(supplied, token.encode("ascii"))
 
         def _valid_authority(self, authority: str) -> bool:
             return valid_local_authority(authority, server.server_port)
@@ -105,7 +115,10 @@ def serve(
             origin = self.headers.get("Origin")
             if not origin:
                 return True
-            parsed = urlsplit(origin)
+            try:
+                parsed = urlsplit(origin)
+            except ValueError:
+                return False
             return parsed.scheme == "http" and self._valid_authority(parsed.netloc)
 
         def _require_auth(self) -> bool:
@@ -319,7 +332,7 @@ def serve(
             except (FlowValidationError, OSError, ValueError) as exc:
                 self._json({"error": str(exc)}, 400)
 
-    server = ThreadingHTTPServer((host, port), Handler)
+    server = LocalHTTPServer((host, port), Handler)
     url = f"http://{host}:{server.server_port}/"
     print(f"Flow2Skill Studio: {url}")
     print(f"Workspaces: {root}")
