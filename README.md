@@ -21,6 +21,14 @@ It exports:
 
 Flow2Skill is not an autonomous browser agent. It preserves a workflow that already worked.
 
+## Quickstart
+
+```bash
+pip install flow2skill && flow2skill demo
+```
+
+This writes a sample bundle to `flow2skill-demo/` with `flow.json`, `flow.yaml`, `SKILL.md`, a pytest proof, and `README.md`. To record your own flow, see [Install](#install).
+
 ## Why use it
 
 Browser agents are useful when the path is unknown. They are expensive and inconsistent when the path is already known. Flow2Skill converts a successful run into a reusable asset with stable selectors, protected inputs, explicit review gates, and mechanical success criteria.
@@ -288,3 +296,10 @@ and remove newly introduced generated files, or regenerate the bundle into a fre
 directory from the original recording. Do not execute a mixed or unverified bundle.
 Remove the stale lock only after recovery; retained staging directories can then be
 removed. Incomplete rollback reports its recovery directory and keeps the lock.
+
+---
+
+### Related Tools
+* **[`pytest-glow-report`](https://github.com/godhiraj-code/pytest-glow-report)** — Zero-config interactive HTML/JSON reports for `pytest` with SQLite-backed run history.
+* **[`outcomelock`](https://github.com/godhiraj-code/outcomelock)** — Prevent autonomous AI agents from re-executing already completed work with fail-closed terminal assertions.
+* **[`flow2skill`](https://github.com/godhiraj-code/flow2skill)** — Compile Playwright codegen recordings into redacted, review-gated agent skills and `pytest` proofs.
