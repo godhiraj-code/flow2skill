@@ -63,8 +63,18 @@ Studio, or CLI replay without pytest, install the base `flow2skill` package.
 From a source checkout:
 
 ```bash
+# macOS/Linux
 python -m venv .venv
-# Windows
+.venv/bin/python -m pip install -e ".[dev]"
+.venv/bin/python -m playwright install chromium
+.venv/bin/flow2skill doctor
+.venv/bin/flow2skill studio
+```
+
+Windows Command Prompt:
+
+```cmd
+python -m venv .venv
 .venv\Scripts\python.exe -m pip install -e ".[dev]"
 .venv\Scripts\python.exe -m playwright install chromium
 .venv\Scripts\flow2skill.exe doctor
@@ -143,6 +153,14 @@ it does not verify interactive Inspector recording. The runner overwrites its ow
 ## Record a workflow
 
 ```bash
+flow2skill record https://example.com \
+  --name "Documentation search" \
+  --success-text "Results"
+```
+
+Windows Command Prompt:
+
+```cmd
 flow2skill record https://example.com ^
   --name "Documentation search" ^
   --success-text "Results"

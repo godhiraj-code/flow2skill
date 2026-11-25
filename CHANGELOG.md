@@ -4,6 +4,14 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.2.1] - UNRELEASED
+
+### Fixed
+
+- Docs only: the README bash "Record a workflow" example used Windows `^` line breaks, so it failed when pasted into bash. That example now uses bash line continuations, with the Command Prompt form in a separate `cmd` block. The source-checkout install example is split the same way.
+- The packaged PyPI README now matches GitHub, including Quickstart, Author, and Related Tools.
+- CHANGELOG compare links now include 0.2.0 and 0.2.1.
+
 ## [0.2.0] - 2026-09-06
 
 ### Added
@@ -79,5 +87,7 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 - Workflow compilation requires at least one executable assertion.
 - Live generated proofs fail nonzero rather than false-green skipping when review permission is missing.
 
-[Unreleased]: https://github.com/godhiraj-code/flow2skill/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/godhiraj-code/flow2skill/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/godhiraj-code/flow2skill/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/godhiraj-code/flow2skill/releases/tag/v0.2.0
 [0.1.0]: https://github.com/godhiraj-code/flow2skill/releases/tag/v0.1.0
