@@ -4,7 +4,7 @@ All notable changes to Flow2Skill are documented here. The format follows [Keep 
 
 ## [Unreleased]
 
-## [0.2.1] - UNRELEASED
+## [0.2.1] - 2026-11-27
 
 ### Fixed
 
